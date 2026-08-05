@@ -8,8 +8,8 @@ dist-ssr
 .env.*
 !.env.example
 # Mode files are committed: they contain only public, build-time values.
-!.env.development
-!.env.production
+.env.development
+.env.production
 
 .DS_Store
 Thumbs.db

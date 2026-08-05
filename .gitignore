@@ -1,0 +1,24 @@
+node_modules
+dist
+dist-ssr
+.vite
+*.local
+
+.env
+.env.*
+!.env.example
+# Mode files are committed: they contain only public, build-time values.
+!.env.development
+!.env.production
+
+.DS_Store
+Thumbs.db
+
+.idea
+.vscode/*
+!.vscode/extensions.json
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*

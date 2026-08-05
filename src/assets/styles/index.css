@@ -1,0 +1,197 @@
+@import 'tailwindcss';
+
+/* Source globs / plugins live in the JS config; design tokens live below. */
+@config '../../../tailwind.config.js';
+
+/* ---------------------------------------------------------------------------
+   Design tokens — lifted from the Alotel Spaces Figma file.
+   Tailwind v4 turns every token in `@theme` into a utility
+   (e.g. `--color-brand-700` -> `bg-brand-700`, `text-brand-700`, ...).
+--------------------------------------------------------------------------- */
+@theme {
+  /* Brand green — the signature colour of the product */
+  --color-brand-50: #edf7f1;
+  --color-brand-100: #d6ede0;
+  --color-brand-200: #aedbc2;
+  --color-brand-300: #7fc3a0;
+  --color-brand-400: #4ba57c;
+  --color-brand-500: #2a8a60;
+  --color-brand-600: #1b6e4a;
+  --color-brand-700: #12603f;
+  --color-brand-800: #0e4b32;
+  --color-brand-900: #0a3524;
+
+  /* Logo palette — taken from the supplied brand asset. The mark uses a
+     brighter grass green than the deep forest green the UI uses for buttons,
+     exactly as in the artwork, so both live side by side as their own tokens. */
+  --color-logo: #5aaa40;
+  --color-logo-deep: #2a4a20;
+
+  /* The page canvas is the logo's own backdrop, so the mark sits flush on it
+     with no visible plate. White cards read as raised against the soft tint.
+     Set `--color-canvas: #f7f7f4` to fall back to the neutral off-white. */
+  --color-canvas: #e8f0e0;
+  --color-surface: #ffffff;
+  --color-line: #e0e6d9;
+  --color-ink: #16181a;
+  --color-ink-soft: #5c6169;
+  --color-ink-muted: #8a9099;
+
+  /* Accents used by badges, ratings and status states */
+  --color-gold: #f0a92c;
+  --color-danger: #d14343;
+  --color-info: #2f6fed;
+  --color-footer: #2b2b2b;
+
+  /* Typography — the wordmark is set in Georgia, matching the brand artwork. */
+  --font-display: 'Poppins', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-serif: Georgia, 'Times New Roman', ui-serif, serif;
+
+  /* Radii + elevation */
+  --radius-card: 0.875rem;
+  --shadow-card: 0 1px 2px rgb(16 24 40 / 0.04), 0 8px 24px -12px rgb(16 24 40 / 0.12);
+  --shadow-raised: 0 12px 40px -16px rgb(16 24 40 / 0.24);
+
+  /* Layout */
+  --spacing-shell: 80rem;
+
+  /* Extra breakpoint for small phones (iPhone SE / 320–414px) — the default
+     scale jumps straight from base to 640px, which is too coarse there. */
+  --breakpoint-xs: 26rem;
+}
+
+/* ---------------------------------------------------------------------------
+   Base layer
+--------------------------------------------------------------------------- */
+@layer base {
+  * {
+    border-color: var(--color-line);
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    color: var(--color-ink);
+  }
+
+  /* Consistent, accessible focus ring across every interactive element */
+  :where(a, button, input, select, textarea, [tabindex]):focus-visible {
+    outline: 2px solid var(--color-brand-600);
+    outline-offset: 2px;
+    border-radius: 0.375rem;
+  }
+
+  /* Hide the native number-input spinners — the designs use plain fields */
+  input[type='number']::-webkit-inner-spin-button,
+  input[type='number']::-webkit-outer-spin-button {
+    appearance: none;
+    margin: 0;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Small, reusable composites. Anything used more than twice earns a class.
+--------------------------------------------------------------------------- */
+@layer components {
+  /* Page shell: centred content column with responsive gutters */
+  .shell {
+    width: 100%;
+    max-width: var(--spacing-shell);
+    margin-inline: auto;
+    padding-inline: 1rem;
+  }
+
+  @media (min-width: 640px) {
+    .shell {
+      padding-inline: 1.5rem;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .shell {
+      padding-inline: 2.5rem;
+    }
+  }
+
+  /* The italic label treatment used on primary CTAs throughout the designs */
+  .cta-label {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 600;
+  }
+
+  /* Section eyebrow copy under headings */
+  .section-sub {
+    color: var(--color-ink-soft);
+    font-size: 0.9375rem;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Utilities
+--------------------------------------------------------------------------- */
+@utility scrollbar-none {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Dark scrim used on hero images so white type stays legible */
+@utility hero-scrim {
+  background-image: linear-gradient(
+    100deg,
+    rgb(6 12 9 / 0.78) 0%,
+    rgb(6 12 9 / 0.55) 42%,
+    rgb(6 12 9 / 0.15) 100%
+  );
+}
+
+@utility card-scrim {
+  background-image: linear-gradient(to top, rgb(4 8 6 / 0.85) 0%, rgb(4 8 6 / 0) 55%);
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@utility animate-fade-up {
+  animation: fade-up 0.35s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

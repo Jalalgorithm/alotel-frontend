@@ -1,0 +1,208 @@
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { CalendarDays, CheckCircle2, Download, Home, Loader2, MapPin, TriangleAlert, Users } from 'lucide-react';
+import { Button } from '@/components/ui/Button';
+import { Alert } from '@/components/ui/Alert';
+import { Logo } from '@/components/shared/Logo';
+import { formatDate } from '@/utils/format';
+import { paths } from '@/routes/paths';
+import { useBookingStore } from '@/stores/bookingStore';
+import { useBooking, usePaymentStatus } from '../hooks/useBookingMutations';
+import { PriceSummary } from './PriceSummary';
+import { useProperty } from '@/features/properties';
+
+/**
+ * Where the guest lands after the provider's checkout page.
+ *
+ * The provider redirects back with only its own session id, so the booking id
+ * is read from the draft the wizard stashed before leaving. The webhook that
+ * actually confirms the booking may not have arrived yet, so this polls the
+ * status endpoint until the booking settles rather than asserting success the
+ * moment the guest reappears.
+ *
+ * Because that draft is the only carrier of the id, it is captured into local
+ * state on arrival — see `bookingId` below.
+ */
+export const BookingSuccessPage = () => {
+  const [searchParams] = useSearchParams();
+  const draftBookingId = useBookingStore((state) => state.draft.bookingId);
+  const reset = useBookingStore((state) => state.reset);
+
+  const incomingId = searchParams.get('booking_id') ?? draftBookingId ?? null;
+
+  /**
+   * Latch the booking id the first time we see one, and never let go.
+   *
+   * This page clears the draft once the booking settles — and the provider
+   * returns with only its own `session_id`, no `booking_id` — so re-deriving
+   * the id on every render would hand back `null` the moment that reset lands,
+   * and the page would tell a guest who has just paid that their booking
+   * cannot be found. Holding it locally makes the reset harmless.
+   */
+  const [bookingId, setBookingId] = useState(incomingId);
+
+  useEffect(() => {
+    if (incomingId && !bookingId) setBookingId(incomingId);
+  }, [incomingId, bookingId]);
+
+  const { data: status, isLoading: isChecking } = usePaymentStatus(bookingId);
+  const { data: booking } = useBooking(bookingId);
+  // Only needed to name the tax line; the amounts all come from the booking.
+  const { data: property } = useProperty(booking?.propertyId);
+
+  const isSettled = status?.status && status.status !== 'pending_payment';
+  const isConfirmed = ['confirmed', 'active', 'completed', 'pending_kyc', 'pending_approval'].includes(status?.status);
+
+  // Once the booking is confirmed the draft has served its purpose; clearing it
+  // stops a stale bookingId from hijacking the guest's next booking.
+  useEffect(() => {
+    if (isConfirmed) reset();
+  }, [isConfirmed, reset]);
+
+  if (!bookingId) {
+    return (
+      <div className="shell flex min-h-[70vh] flex-col items-center justify-center py-10 text-center">
+        <Logo className="mb-6" />
+        <Alert variant="warn" title="We could not identify this booking" className="max-w-md text-left">
+          The confirmation link is missing a booking reference. Your bookings are listed on your dashboard.
+        </Alert>
+        <Button to={paths.dashboard} className="mt-6">
+          Go to dashboard
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="shell py-10">
+      <div className="mx-auto max-w-lg">
+        <div className="text-center">
+          <Logo className="mx-auto mb-8" />
+
+          {!isSettled && (
+            <>
+              <span className="mx-auto flex size-14 items-center justify-center rounded-full bg-brand-50">
+                <Loader2 className="size-6 animate-spin text-brand-600" aria-hidden="true" />
+              </span>
+              <h1 className="mt-4 font-display text-[24px] font-bold text-brand-700 sm:text-[28px]">
+                Confirming your payment
+              </h1>
+              <p className="mt-2 text-[13px] text-ink-muted">
+                This usually takes a few seconds. You can safely leave this page — we will email you either way.
+              </p>
+            </>
+          )}
+
+          {isSettled && isConfirmed && (
+            <>
+              <span className="mx-auto flex size-14 items-center justify-center rounded-full bg-ok-soft">
+                <CheckCircle2 className="size-7 text-ok" aria-hidden="true" />
+              </span>
+              <h1 className="mt-4 font-display text-[24px] font-bold text-brand-700 sm:text-[28px]">
+                Booking confirmed
+              </h1>
+              <p className="mt-2 text-[13px] text-ink-muted">
+                Your payment went through. A confirmation email is on its way.
+              </p>
+            </>
+          )}
+
+          {isSettled && !isConfirmed && (
+            <>
+              <span className="mx-auto flex size-14 items-center justify-center rounded-full bg-warn-soft">
+                <TriangleAlert className="size-7 text-warn" aria-hidden="true" />
+              </span>
+              <h1 className="mt-4 font-display text-[24px] font-bold text-brand-700 sm:text-[28px]">
+                Payment not completed
+              </h1>
+              <p className="mt-2 text-[13px] text-ink-muted">
+                Your booking is still held. You can retry payment from your dashboard.
+              </p>
+            </>
+          )}
+        </div>
+
+        {/* Booking summary */}
+        {booking && (
+          <div className="mt-8 rounded-card border border-line bg-surface p-5 shadow-card">
+            <div className="flex items-center justify-between gap-4 border-b border-line pb-3">
+              <span className="text-[10px] font-bold uppercase tracking-[0.07em] text-ink-muted">Reference</span>
+              <span className="truncate font-mono text-[12px] text-ink">{booking.id}</span>
+            </div>
+
+            <dl className="mt-4 space-y-3">
+              <div className="flex items-start justify-between gap-4">
+                <dt className="inline-flex items-center gap-1.5 text-[12.5px] text-ink-soft">
+                  <CalendarDays className="size-3.5 text-brand-600" aria-hidden="true" />
+                  Dates
+                </dt>
+                <dd className="text-right text-[12.5px] text-ink">
+                  {formatDate(booking.checkIn)} → {formatDate(booking.checkOut)}
+                  <span className="block text-[11px] text-ink-muted">
+                    {booking.nights} {booking.nights === 1 ? 'night' : 'nights'}
+                  </span>
+                </dd>
+              </div>
+
+              <div className="flex items-start justify-between gap-4">
+                <dt className="inline-flex items-center gap-1.5 text-[12.5px] text-ink-soft">
+                  <Users className="size-3.5 text-brand-600" aria-hidden="true" />
+                  Guests
+                </dt>
+                <dd className="text-right text-[12.5px] text-ink">
+                  {booking.adults} {booking.adults === 1 ? 'adult' : 'adults'}
+                  {booking.children > 0 && `, ${booking.children} children`}
+                  {booking.infants > 0 && `, ${booking.infants} infants`}
+                </dd>
+              </div>
+
+              <div className="flex items-start justify-between gap-4">
+                <dt className="inline-flex items-center gap-1.5 text-[12.5px] text-ink-soft">
+                  <MapPin className="size-3.5 text-brand-600" aria-hidden="true" />
+                  Status
+                </dt>
+                <dd className="text-right text-[12.5px] font-medium text-ink">{booking.statusLabel}</dd>
+              </div>
+            </dl>
+
+            {booking.pricing && (
+              <PriceSummary
+                pricing={booking.pricing}
+                nights={booking.nights}
+                currency={booking.currency}
+                country={property?.location}
+                className="mt-4 border-t border-line pt-3"
+              />
+            )}
+          </div>
+        )}
+
+        <div className="mt-6 flex flex-col gap-2.5 sm:flex-row">
+          <Button
+            to={paths.dashboard}
+            fullWidth
+            className="min-w-0 sm:flex-1"
+            size="lg"
+            leftIcon={<Home className="size-4" aria-hidden="true" />}
+          >
+            Go to dashboard
+          </Button>
+          <Button
+            variant="secondary"
+            fullWidth
+            className="min-w-0 sm:flex-1"
+            size="lg"
+            to={paths.properties}
+            leftIcon={<Download className="size-4" aria-hidden="true" />}
+          >
+            Browse more stays
+          </Button>
+        </div>
+
+        {isChecking && !isSettled && (
+          <p className="mt-4 text-center text-[11.5px] text-ink-muted">Checking with the payment provider…</p>
+        )}
+      </div>
+    </div>
+  );
+};

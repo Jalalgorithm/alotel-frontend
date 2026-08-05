@@ -1,0 +1,312 @@
+import { apiClient } from '@/lib/apiClient';
+import { env } from '@/lib/env';
+import { authStorage, jsonStorage } from '@/lib/storage';
+import { ApiError } from '@/utils/errors';
+import { clone, createId, delay } from '@/lib/mock/utils';
+import {
+  defaultProviderFor,
+  toAvailability,
+  toBooking,
+  toBookingSummary,
+  toPaymentIntent,
+} from '@/lib/bookingSchema';
+
+/**
+ * Booking service — availability, booking lifecycle, identity verification and
+ * payment initiation.
+ *
+ * Mock and real implementations share one surface, so components never learn
+ * which backend is answering.
+ */
+
+const BOOKINGS_KEY = 'alotel.mock.bookings';
+
+const readBookings = () => jsonStorage.read(BOOKINGS_KEY, []);
+const writeBookings = (bookings) => jsonStorage.write(BOOKINGS_KEY, bookings);
+
+const requireUser = () => {
+  const user = authStorage.getUser();
+  if (!user) throw new ApiError('Please sign in to manage bookings.', 401);
+  return user;
+};
+
+const mockBookings = {
+  async checkAvailability({ propertyId, checkIn, checkOut, adults = 1, children = 0 }) {
+    await delay(400);
+
+    const nights = Math.max(0, Math.round((new Date(checkOut) - new Date(checkIn)) / 864e5));
+    const nightlyTotal = 200 * nights;
+
+    return {
+      propertyId,
+      isAvailable: nights > 0,
+      checkIn,
+      checkOut,
+      nights,
+      currency: 'GBP',
+      conflicts: nights > 0 ? [] : ['Select at least one night.'],
+      pricing: {
+        currency: 'GBP',
+        nightlyTotal,
+        discountTotal: 0,
+        cleaningFee: 45,
+        taxTotal: nightlyTotal * 0.2,
+        securityDeposit: 150,
+        totalDueNow: nightlyTotal + 45 + nightlyTotal * 0.2,
+      },
+      guests: adults + children,
+    };
+  },
+
+  async create(payload) {
+    await delay(900);
+    const user = requireUser();
+
+    const booking = {
+      id: createId('bkg'),
+      userId: user.id,
+      status: 'pending_payment',
+      statusLabel: 'Payment pending',
+      createdAt: new Date().toISOString(),
+      lineItems: [],
+      statusHistory: [],
+      ...payload,
+    };
+
+    writeBookings([booking, ...readBookings()]);
+    return clone(booking);
+  },
+
+  async list() {
+    await delay(450);
+    const user = requireUser();
+    return clone(readBookings().filter((booking) => booking.userId === user.id));
+  },
+
+  async detail(bookingId) {
+    await delay(300);
+    const booking = readBookings().find((entry) => entry.id === bookingId);
+    if (!booking) throw new ApiError('Booking not found.', 404);
+    return clone(booking);
+  },
+
+  async timeline() {
+    await delay(200);
+    return [];
+  },
+
+  async receipt(bookingId) {
+    await delay(300);
+    return { booking_id: bookingId, line_items: [], payments: [] };
+  },
+
+  async cancel(bookingId, reason) {
+    await delay(500);
+
+    const bookings = readBookings();
+    const index = bookings.findIndex((entry) => entry.id === bookingId);
+    if (index < 0) throw new ApiError('Booking not found.', 404);
+
+    bookings[index] = { ...bookings[index], status: 'cancelled', statusLabel: 'Cancelled', reason };
+    writeBookings(bookings);
+    return clone(bookings[index]);
+  },
+
+  async paymentOptions() {
+    await delay(200);
+    return {
+      supportedCurrencies: ['GBP', 'EUR', 'USD', 'AED', 'NGN'],
+      providerByCurrency: { GBP: 'stripe', EUR: 'stripe', USD: 'stripe', AED: 'stripe', NGN: 'flutterwave' },
+      rates: {},
+      note: '',
+    };
+  },
+
+  async initiatePayment({ bookingId, currency, provider }) {
+    await delay(800);
+
+    return {
+      bookingId,
+      transactionId: createId('txn'),
+      provider: provider ?? defaultProviderFor({ NGN: 'flutterwave' }, currency),
+      amount: 0,
+      currency,
+      status: 'initiated',
+      bookingStatus: 'pending_payment',
+      providerReference: null,
+      /** No hosted page in mock mode — the wizard treats this as already paid. */
+      paymentUrl: null,
+      lineItems: [],
+      detail: 'Mock payment initiated.',
+    };
+  },
+
+  async paymentStatus(bookingId) {
+    await delay(400);
+    return { booking_id: bookingId, status: 'confirmed', payment_status: 'succeeded' };
+  },
+
+  async startIdentity(bookingId) {
+    await delay(700);
+    return {
+      identityCheckId: createId('idc'),
+      bookingId,
+      sessionId: 'vs_mock',
+      clientSecret: null,
+      status: 'verified',
+      detail: 'Mock verification passed.',
+    };
+  },
+
+  async identityStatus() {
+    await delay(200);
+    return { status: 'verified' };
+  },
+
+  async taxRules() {
+    await delay(200);
+    return [];
+  },
+};
+
+/* -------------------------------------------------------------------------- */
+/* Real API                                                                    */
+/* -------------------------------------------------------------------------- */
+
+const realBookings = {
+  async checkAvailability({ propertyId, checkIn, checkOut, adults = 1, children = 0 }) {
+    const { data } = await apiClient.post('/availability/check/', {
+      property_id: propertyId,
+      check_in_date: checkIn,
+      check_out_date: checkOut,
+      adults,
+      children,
+    });
+    return toAvailability(data);
+  },
+
+  async create({ propertyId, checkIn, checkOut, adults, children, infants, specialRequests, isCommercial }) {
+    const { data } = await apiClient.post('/bookings/', {
+      property_id: propertyId,
+      check_in_date: checkIn,
+      check_out_date: checkOut,
+      adults: Number(adults) || 1,
+      children: Number(children) || 0,
+      infants: Number(infants) || 0,
+      is_commercial: Boolean(isCommercial),
+      special_requests: specialRequests ?? '',
+    });
+    return toBooking(data);
+  },
+
+  async list() {
+    const { data } = await apiClient.get('/guest/bookings/');
+    return (data ?? []).map(toBookingSummary);
+  },
+
+  async detail(bookingId) {
+    const { data } = await apiClient.get(`/bookings/${bookingId}/`);
+    return toBooking(data);
+  },
+
+  async timeline(bookingId) {
+    const { data } = await apiClient.get(`/bookings/${bookingId}/timeline/`);
+    return data;
+  },
+
+  async receipt(bookingId) {
+    const { data } = await apiClient.get(`/bookings/${bookingId}/receipt/`);
+    return data;
+  },
+
+  async cancel(bookingId, reason = '') {
+    const { data } = await apiClient.post(`/bookings/${bookingId}/cancel/`, { reason });
+    return data;
+  },
+
+  /**
+   * Which provider handles which currency is the server's rule; the UI reads it
+   * rather than restating it, so the two can never disagree.
+   */
+  async paymentOptions(base = 'GBP') {
+    const { data } = await apiClient.get('/payments/fx-rate/', { params: { base } });
+    return {
+      supportedCurrencies: data.supported_currencies ?? [],
+      providerByCurrency: data.payment_provider_by_currency ?? {},
+      rates: data.rates ?? {},
+      note: data.note ?? '',
+    };
+  },
+
+  async initiatePayment({ bookingId, currency, provider }) {
+    const { data } = await apiClient.post('/payments/initiate/', {
+      booking_id: bookingId,
+      currency,
+      ...(provider ? { provider } : {}),
+    });
+    return toPaymentIntent(data);
+  },
+
+  /** Post-checkout reconciliation — also flips a paid booking to confirmed. */
+  async paymentStatus(bookingId) {
+    const { data } = await apiClient.get('/bookings/success/', { params: { booking_id: bookingId } });
+    return data;
+  },
+
+  /**
+   * Stripe Identity. The API returns a `client_secret` for
+   * `stripe.verifyIdentity()`; a null secret means the guest is already
+   * verified inside the 12-month window and no Stripe call is needed.
+   */
+  async startIdentity(bookingId) {
+    const { data } = await apiClient.post('/kyc/short/start/', { booking_id: bookingId });
+    return {
+      identityCheckId: data.identity_check_id,
+      bookingId: data.booking_id,
+      sessionId: data.session_id,
+      clientSecret: data.client_secret ?? null,
+      status: data.status,
+      detail: data.detail ?? '',
+    };
+  },
+
+  /**
+   * Country tax rules. Public, so the guest can be told *which* tax they are
+   * paying rather than a bare "Taxes" line.
+   */
+  async taxRules() {
+    const { data } = await apiClient.get('/properties/taxes/');
+    return (data?.results ?? data ?? []).map((rule) => ({
+      id: rule.id,
+      country: rule.country,
+      name: rule.name || `${rule.country} tax`,
+      percentage: Number(rule.percentage) || 0,
+    }));
+  },
+
+  async identityStatus(guestId) {
+    const { data } = await apiClient.get(`/kyc/short/status/${guestId}/`);
+    return data;
+  },
+};
+
+const backend = env.useMockBookings ? mockBookings : realBookings;
+
+export const bookingService = {
+  checkAvailability: (params) => backend.checkAvailability(params),
+
+  createBooking: (payload) => backend.create(payload),
+  getBookings: () => backend.list(),
+  getBooking: (bookingId) => backend.detail(bookingId),
+  getTimeline: (bookingId) => backend.timeline(bookingId),
+  getReceipt: (bookingId) => backend.receipt(bookingId),
+  cancelBooking: (bookingId, reason) => backend.cancel(bookingId, reason),
+
+  getPaymentOptions: (base) => backend.paymentOptions(base),
+  initiatePayment: (payload) => backend.initiatePayment(payload),
+  getPaymentStatus: (bookingId) => backend.paymentStatus(bookingId),
+
+  startIdentity: (bookingId) => backend.startIdentity(bookingId),
+  getIdentityStatus: (guestId) => backend.identityStatus(guestId),
+  getTaxRules: () => backend.taxRules(),
+};

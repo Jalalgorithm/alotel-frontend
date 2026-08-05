@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /book
+
+Sitemap: https://alotelspaces.com/sitemap.xml

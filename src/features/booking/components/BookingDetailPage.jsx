@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
   AlertTriangle,
@@ -30,8 +30,8 @@ import { paths } from '@/routes/paths';
 import { useAuth } from '@/features/auth';
 import { useProperty } from '@/features/properties';
 import { BookingProgress } from './BookingProgress';
-import { BookingReceipt } from './BookingReceipt';
 import { PriceSummary } from './PriceSummary';
+import { printReceipt } from '../receiptDocument';
 import {
   useBooking,
   useBookingMessages,
@@ -161,7 +161,6 @@ export const BookingDetailPage = () => {
   const { initiatePaymentAsync, isPending: isPaying } = useInitiatePayment();
   const { cancelBooking, isPending: isCancelling } = useCancelBooking();
 
-  const receiptRef = useRef(null);
   const [isCancelOpen, setIsCancelOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
   const [payError, setPayError] = useState('');
@@ -214,7 +213,7 @@ export const BookingDetailPage = () => {
   };
 
   return (
-    <div className="print-receipt-host">
+    <div>
       <div className="shell py-8">
         <Link
           to={paths.dashboard}
@@ -275,9 +274,21 @@ export const BookingDetailPage = () => {
           </Alert>
         )}
 
-        <div className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,20rem)]">
-          {/* Main column */}
-          <div className="space-y-5">
+        {/*
+          Three blocks rather than two columns, so the stacked mobile order is
+          sensible on its own terms.
+
+          Source order is the mobile order: the stay and what it cost, then
+          where the booking has got to, then the conversation and the actions.
+          As two columns the whole sidebar fell below the message thread, which
+          put "talk to us" above "here is your status" — backwards, since the
+          status is usually what the guest opened the page to check.
+
+          On `lg` the explicit placement rebuilds the two-column layout.
+        */}
+        <div className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,20rem)] lg:items-start">
+          {/* The stay and its cost */}
+          <div className="space-y-5 lg:col-start-1 lg:row-start-1">
             <Panel title="Your stay" subtitle="Everything confirmed for this reservation.">
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                 <Fact icon={CalendarDays} label="Check-in">
@@ -302,7 +313,7 @@ export const BookingDetailPage = () => {
                 <Button
                   size="sm"
                   variant="secondary"
-                  onClick={() => window.print()}
+                  onClick={() => printReceipt({ receipt, booking, property, guest: user })}
                   disabled={!receipt}
                   leftIcon={<Download className="size-3.5" aria-hidden="true" />}
                 >
@@ -362,6 +373,34 @@ export const BookingDetailPage = () => {
               </div>
             </Panel>
 
+          </div>
+
+          {/* Status — second on mobile, right-hand column on desktop */}
+          <div className="space-y-5 lg:col-start-2 lg:row-span-2 lg:row-start-1">
+            <Panel title="Progress" subtitle="Where this booking has got to.">
+              {timeline?.steps?.length ? (
+                <BookingProgress timeline={timeline} />
+              ) : (
+                <Skeleton className="h-40 w-full" />
+              )}
+            </Panel>
+
+            <Panel title="Verification" subtitle="Identity checks for this stay.">
+              <p className="flex items-center gap-2 text-[12.5px] text-ink-soft">
+                <ShieldCheck className="size-4 shrink-0 text-brand-600" aria-hidden="true" />
+                {isIdVerified ? 'Identity verified' : 'Not verified yet'}
+              </p>
+              {!isIdVerified && (
+                <Button size="sm" fullWidth className="mt-3" to={paths.booking(booking.propertyId)}>
+                  Verify identity
+                </Button>
+              )}
+            </Panel>
+          </div>
+
+          {/* Conversation and actions — last, so nothing destructive sits near
+              the top of a phone screen */}
+          <div className="space-y-5 lg:col-start-1 lg:row-start-2">
             <Panel title="Messages" subtitle="Talk to us about this stay.">
               <MessageThread bookingId={booking.id} />
             </Panel>
@@ -386,28 +425,12 @@ export const BookingDetailPage = () => {
                 </p>
               </Panel>
             )}
-          </div>
 
-          {/* Sidebar */}
-          <div className="space-y-5">
-            <Panel title="Progress" subtitle="Where this booking has got to.">
-              {timeline?.steps?.length ? (
-                <BookingProgress timeline={timeline} />
-              ) : (
-                <Skeleton className="h-40 w-full" />
-              )}
-            </Panel>
-
-            <Panel title="Verification" subtitle="Identity checks for this stay.">
-              <p className="flex items-center gap-2 text-[12.5px] text-ink-soft">
-                <ShieldCheck className="size-4 shrink-0 text-brand-600" aria-hidden="true" />
-                {isIdVerified ? 'Identity verified' : 'Not verified yet'}
+            <Panel title="Support" subtitle="We reply within an hour on average.">
+              <p className="inline-flex items-center gap-2 text-[12.5px] text-ink-soft">
+                <MessageSquare className="size-4 text-brand-600" aria-hidden="true" />
+                Use the message thread on this page.
               </p>
-              {!isIdVerified && (
-                <Button size="sm" fullWidth className="mt-3" to={paths.booking(booking.propertyId)}>
-                  Verify identity
-                </Button>
-              )}
             </Panel>
 
             {canCancel && (
@@ -422,19 +445,9 @@ export const BookingDetailPage = () => {
                 </Button>
               </Panel>
             )}
-
-            <Panel title="Support" subtitle="We reply within an hour on average.">
-              <p className="inline-flex items-center gap-2 text-[12.5px] text-ink-soft">
-                <MessageSquare className="size-4 text-brand-600" aria-hidden="true" />
-                Use the message thread on this page.
-              </p>
-            </Panel>
           </div>
         </div>
       </div>
-
-      {/* Off-screen until printed */}
-      <BookingReceipt ref={receiptRef} receipt={receipt} booking={booking} property={property} guest={user} />
 
       <Modal
         isOpen={isCancelOpen}

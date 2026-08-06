@@ -197,38 +197,6 @@
 }
 
 /* -------------------------------------------------------------------------- */
-/* Printable receipt                                                          */
-/* -------------------------------------------------------------------------- */
-
-/*
- * The receipt lives in the page but is invisible on screen. Printing swaps the
- * two: the app disappears and the receipt becomes the whole document, so the
- * browser's own "Save as PDF" produces a clean one-page file with selectable
- * text — no PDF library, and nothing rasterised.
- */
-.print-receipt {
-  display: none;
-}
-
-@media print {
-  body > #root > *:not(.print-receipt-host),
-  .print-receipt-host > *:not(.print-receipt) {
-    display: none !important;
-  }
-
-  .print-receipt {
-    display: block !important;
-    position: static;
-  }
-
-  /* Backgrounds are dropped by default when printing; the receipt is
-     deliberately monochrome so it survives that intact. */
-  @page {
-    margin: 12mm;
-  }
-}
-
-/* -------------------------------------------------------------------------- */
 /* Termageddon policy content                                                 */
 /* -------------------------------------------------------------------------- */
 

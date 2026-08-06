@@ -43,6 +43,21 @@ export const env = {
    */
   stripePublishableKey: import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || '',
 
+  /**
+   * Termageddon policy keys, one per document, from their dashboard's embed
+   * code (`data-policy-key`). Purely client-side — the policy HTML is fetched
+   * from Termageddon at render time and never passes through our API.
+   *
+   * Blank is a supported state: the page says the policy is not published yet
+   * rather than showing a broken embed.
+   */
+  termageddon: {
+    privacy: import.meta.env.VITE_TERMAGEDDON_PRIVACY_KEY || '',
+    terms: import.meta.env.VITE_TERMAGEDDON_TERMS_KEY || '',
+    cookies: import.meta.env.VITE_TERMAGEDDON_COOKIE_KEY || '',
+    disclaimer: import.meta.env.VITE_TERMAGEDDON_DISCLAIMER_KEY || '',
+  },
+
   mockLatency: Number(import.meta.env.VITE_MOCK_LATENCY ?? 800),
   appName: import.meta.env.VITE_APP_NAME || 'Alotel Spaces',
   isDev: import.meta.env.DEV,

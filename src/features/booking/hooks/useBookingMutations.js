@@ -140,6 +140,53 @@ export const useTaxRules = () =>
     staleTime: 1000 * 60 * 60,
   });
 
+/** The stay's progress steps, owned by the server. */
+export const useBookingTimeline = (bookingId) =>
+  useQuery({
+    queryKey: queryKeys.bookings.timeline(bookingId),
+    queryFn: () => bookingService.getTimeline(bookingId),
+    enabled: Boolean(bookingId),
+  });
+
+/** Line items and settled payments — the basis of the downloadable receipt. */
+export const useBookingReceipt = (bookingId) =>
+  useQuery({
+    queryKey: queryKeys.bookings.receipt(bookingId),
+    queryFn: () => bookingService.getReceipt(bookingId),
+    enabled: Boolean(bookingId),
+  });
+
+/** The support thread for one booking. */
+export const useBookingMessages = (bookingId) =>
+  useQuery({
+    queryKey: queryKeys.bookings.messages(bookingId),
+    queryFn: () => bookingService.getMessages(bookingId),
+    enabled: Boolean(bookingId),
+    /** A conversation is worth keeping fresh while the guest is reading it. */
+    refetchInterval: 30000,
+  });
+
+export const useSendMessage = (bookingId) => {
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: (body) => bookingService.sendMessage(bookingId, body),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.bookings.messages(bookingId) }),
+    onError: (error) => toast.error('Message not sent', getErrorMessage(error)),
+  });
+
+  return { sendMessage: mutation.mutate, isPending: mutation.isPending };
+};
+
+/** In-app notifications for the signed-in guest. */
+export const useNotifications = (guestId) =>
+  useQuery({
+    queryKey: queryKeys.bookings.notifications(guestId),
+    queryFn: () => bookingService.getNotifications(guestId),
+    enabled: Boolean(guestId),
+    staleTime: 1000 * 60,
+  });
+
 /** Open a Stripe Identity verification session for this booking. */
 export const useStartIdentity = () => {
   const mutation = useMutation({

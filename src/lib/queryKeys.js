@@ -36,6 +36,9 @@ export const queryKeys = {
     paymentStatus: (id) => ['bookings', 'payment-status', id],
     receipt: (id) => ['bookings', 'receipt', id],
     taxRules: () => ['bookings', 'tax-rules'],
+    timeline: (id) => ['bookings', 'timeline', id],
+    messages: (id) => ['bookings', 'messages', id],
+    notifications: (guestId) => ['bookings', 'notifications', guestId],
   },
   dashboard: {
     summary: () => ['dashboard', 'summary'],

@@ -80,11 +80,11 @@ export const SignupPage = () => {
           label={
             <>
               I agree to the{' '}
-              <Link to={paths.support} className="text-brand-700 underline">
+              <Link to={paths.terms} target="_blank" rel="noreferrer" className="text-brand-700 underline">
                 Terms of Service
               </Link>{' '}
               and{' '}
-              <Link to={paths.support} className="text-brand-700 underline">
+              <Link to={paths.privacy} target="_blank" rel="noreferrer" className="text-brand-700 underline">
                 Privacy Policy
               </Link>
             </>

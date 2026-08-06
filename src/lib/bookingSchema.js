@@ -108,6 +108,78 @@ export const toBooking = (raw) => {
   };
 };
 
+/**
+ * `GET /bookings/{id}/timeline/` — the stay's progress, as the API models it.
+ *
+ * The server owns the step list and which are done, so the tracker renders
+ * whatever it is given rather than hardcoding a journey that could drift.
+ */
+export const toTimeline = (raw) => ({
+  bookingId: raw?.booking_id,
+  status: raw?.status,
+  steps: (raw?.steps ?? []).map((step) => ({
+    id: step.step,
+    label: step.label,
+    isComplete: Boolean(step.completed),
+    completedAt: step.completed_at ?? null,
+  })),
+});
+
+/** `GET /bookings/{id}/receipt/` — what the guest downloads. */
+export const toReceipt = (raw) => {
+  if (!raw) return null;
+
+  return {
+    bookingId: raw.booking_id,
+    status: raw.status,
+    statusLabel: BOOKING_STATUS_LABELS[raw.status] ?? raw.status,
+    currency: raw.currency,
+    totals: toPricing(raw.totals, raw.currency),
+    lineItems: (raw.line_items ?? []).map((item) => ({
+      type: item.line_type,
+      label: item.label,
+      unitAmount: toNumber(item.unit_amount) ?? 0,
+      quantity: toNumber(item.quantity) ?? 1,
+      total: toNumber(item.total_amount) ?? 0,
+      currency: item.currency,
+    })),
+    payments: (raw.payments ?? []).map((payment) => ({
+      id: payment.id ?? payment.transaction_id,
+      provider: payment.provider,
+      status: payment.status,
+      amount: toNumber(payment.amount) ?? 0,
+      currency: payment.currency,
+      reference: payment.provider_reference ?? null,
+      createdAt: payment.created_at ?? null,
+    })),
+    generatedAt: raw.generated_at,
+  };
+};
+
+/** `GET /messages/{bookingId}/` */
+export const toMessage = (raw) => ({
+  id: raw.id,
+  threadId: raw.thread,
+  senderId: raw.sender,
+  senderEmail: raw.sender_email,
+  body: raw.body,
+  isStaff: Boolean(raw.is_staff ?? raw.is_support),
+  readAt: raw.read_at ?? null,
+  createdAt: raw.created_at ?? raw.createdAt ?? null,
+});
+
+/** `GET /notifications/{guestId}/` */
+export const toNotification = (raw) => ({
+  id: raw.id,
+  channel: raw.channel,
+  trigger: raw.trigger_key,
+  title: raw.title,
+  body: raw.body,
+  status: raw.status,
+  isRead: Boolean(raw.read_at) || raw.status === 'read',
+  createdAt: raw.created_at ?? raw.createdAt ?? null,
+});
+
 /** `GET /guest/bookings/` — a slimmer row than the detail payload. */
 export const toBookingSummary = (raw) => ({
   id: raw.id,

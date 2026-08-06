@@ -195,3 +195,113 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* -------------------------------------------------------------------------- */
+/* Printable receipt                                                          */
+/* -------------------------------------------------------------------------- */
+
+/*
+ * The receipt lives in the page but is invisible on screen. Printing swaps the
+ * two: the app disappears and the receipt becomes the whole document, so the
+ * browser's own "Save as PDF" produces a clean one-page file with selectable
+ * text — no PDF library, and nothing rasterised.
+ */
+.print-receipt {
+  display: none;
+}
+
+@media print {
+  body > #root > *:not(.print-receipt-host),
+  .print-receipt-host > *:not(.print-receipt) {
+    display: none !important;
+  }
+
+  .print-receipt {
+    display: block !important;
+    position: static;
+  }
+
+  /* Backgrounds are dropped by default when printing; the receipt is
+     deliberately monochrome so it survives that intact. */
+  @page {
+    margin: 12mm;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Termageddon policy content                                                 */
+/* -------------------------------------------------------------------------- */
+
+/*
+ * Termageddon returns semantic but unstyled HTML. Tailwind's preflight strips
+ * default margins and list markers, so without this the policy arrives as one
+ * undifferentiated wall of text. These rules are scoped to `.policy-content`
+ * so they can never leak into the rest of the app.
+ */
+.policy-content {
+  color: var(--color-ink-soft);
+  font-size: 13.5px;
+  line-height: 1.75;
+}
+
+.policy-content h1,
+.policy-content h2,
+.policy-content h3,
+.policy-content h4 {
+  color: var(--color-ink);
+  font-weight: 600;
+  line-height: 1.35;
+  margin-top: 1.75em;
+  margin-bottom: 0.5em;
+}
+
+.policy-content h1 { font-size: 1.5em; }
+.policy-content h2 { font-size: 1.3em; }
+.policy-content h3 { font-size: 1.12em; }
+
+.policy-content p,
+.policy-content ul,
+.policy-content ol,
+.policy-content table {
+  margin-bottom: 1em;
+}
+
+.policy-content ul,
+.policy-content ol {
+  padding-left: 1.35em;
+}
+
+.policy-content ul { list-style: disc; }
+.policy-content ol { list-style: decimal; }
+.policy-content li { margin-bottom: 0.35em; }
+
+.policy-content a {
+  color: var(--color-brand-700);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.policy-content strong { color: var(--color-ink); font-weight: 600; }
+
+/* Policies carry wide comparison tables; let them scroll rather than push the
+   page sideways on a phone. */
+.policy-content table {
+  display: block;
+  width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+}
+
+.policy-content th,
+.policy-content td {
+  border: 1px solid var(--color-line);
+  padding: 0.5em 0.7em;
+  text-align: left;
+  vertical-align: top;
+}
+
+.policy-content th {
+  background: var(--color-line-soft);
+  color: var(--color-ink);
+  font-weight: 600;
+}

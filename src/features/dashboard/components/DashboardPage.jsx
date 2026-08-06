@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { BadgeCheck, CalendarCheck, Heart, Moon, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -10,6 +11,8 @@ import { useAuth, useLogout } from '@/features/auth';
 import { useMergeLocalFavorites } from '@/features/properties';
 import { formatDate, getInitials } from '@/utils/format';
 import { paths } from '@/routes/paths';
+import { cn } from '@/utils/classNames';
+import { todayIso } from '@/lib/bookingSchema';
 import { useNavigate } from 'react-router-dom';
 
 /** KYC status values the API returns, mapped to a badge. */
@@ -20,12 +23,33 @@ const KYC_BADGE = {
   unverified: { label: 'Identity not verified', variant: 'neutral' },
 };
 
+const BOOKING_TABS = [
+  { id: 'upcoming', label: 'Upcoming' },
+  { id: 'past', label: 'Past' },
+  { id: 'cancelled', label: 'Cancelled' },
+  { id: 'all', label: 'All' },
+];
+
+/** Which bookings belong under each tab. */
+const filterBookings = (bookings = [], tab) => {
+  const today = todayIso();
+
+  if (tab === 'cancelled') return bookings.filter((b) => ['cancelled', 'refunded'].includes(b.status));
+  if (tab === 'all') return bookings;
+
+  const live = bookings.filter((b) => !['cancelled', 'refunded'].includes(b.status));
+  return tab === 'upcoming'
+    ? live.filter((b) => b.checkOut >= today)
+    : live.filter((b) => b.checkOut < today);
+};
+
 /** Protected landing area for a signed-in guest. */
 export const DashboardPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { data, isPending: isSummaryPending } = useDashboardSummary();
   const { logout, isPending } = useLogout();
+  const [activeTab, setTab] = useState('upcoming');
 
   const firstName = user?.fullName?.split(' ')[0] ?? 'there';
 
@@ -108,6 +132,33 @@ export const DashboardPage = () => {
         <h2 className="font-display text-lg font-semibold">Your bookings</h2>
         <p className="section-sub mt-1">Track the status of every reservation you have made.</p>
 
+        {/* Splitting by where a stay sits in time is the division that actually
+            matters to a guest — a past stay needs nothing from them. */}
+        <div className="scrollbar-none mt-4 flex gap-2 overflow-x-auto pb-1">
+          {BOOKING_TABS.map((tab) => {
+            const count = filterBookings(summary.bookings, tab.id).length;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setTab(tab.id)}
+                aria-pressed={tab.id === activeTab}
+                className={cn(
+                  'shrink-0 rounded-full border px-3.5 py-1.5 text-[12px] font-medium transition-colors',
+                  tab.id === activeTab
+                    ? 'border-brand-700 bg-brand-700 text-white'
+                    : 'border-line bg-white text-ink-soft hover:border-brand-300 hover:text-brand-700',
+                )}
+              >
+                {tab.label}
+                <span className={cn('ml-1.5', tab.id === activeTab ? 'text-white/70' : 'text-ink-muted')}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
         <div className="mt-4">
           {isLoading ? (
             <div className="space-y-4">
@@ -116,7 +167,7 @@ export const DashboardPage = () => {
               ))}
             </div>
           ) : (
-            <BookingList bookings={summary.bookings} />
+            <BookingList bookings={filterBookings(summary.bookings, activeTab)} />
           )}
         </div>
       </section>

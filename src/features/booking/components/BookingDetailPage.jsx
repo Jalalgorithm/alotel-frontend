@@ -1,0 +1,477 @@
+import { useRef, useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
+import {
+  AlertTriangle,
+  ArrowLeft,
+  BookOpen,
+  CalendarDays,
+  CreditCard,
+  Download,
+  MapPin,
+  MessageSquare,
+  Send,
+  ShieldCheck,
+  Star,
+  Users,
+  XCircle,
+} from 'lucide-react';
+import { Button } from '@/components/ui/Button';
+import { Badge } from '@/components/ui/Badge';
+import { Alert } from '@/components/ui/Alert';
+import { Image } from '@/components/ui/Image';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { Textarea } from '@/components/ui/Input';
+import { Modal } from '@/components/ui/Modal';
+import { EmptyState } from '@/components/shared/EmptyState';
+import { cn } from '@/utils/classNames';
+import { formatCurrency, formatDate } from '@/utils/format';
+import { getErrorMessage } from '@/utils/errors';
+import { paths } from '@/routes/paths';
+import { useAuth } from '@/features/auth';
+import { useProperty } from '@/features/properties';
+import { BookingProgress } from './BookingProgress';
+import { BookingReceipt } from './BookingReceipt';
+import { PriceSummary } from './PriceSummary';
+import {
+  useBooking,
+  useBookingMessages,
+  useBookingReceipt,
+  useBookingTimeline,
+  useCancelBooking,
+  useInitiatePayment,
+  usePaymentOptions,
+  useSendMessage,
+} from '../hooks/useBookingMutations';
+
+const STATUS_VARIANT = {
+  pending_payment: 'gold',
+  pending_approval: 'gold',
+  pending_kyc: 'gold',
+  confirmed: 'verified',
+  active: 'soft',
+  completed: 'neutral',
+  cancelled: 'neutral',
+  refunded: 'soft',
+};
+
+const Panel = ({ title, subtitle, action, children, className }) => (
+  <section className={cn('rounded-card border border-line bg-surface p-5 shadow-card', className)}>
+    <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="min-w-0">
+        <h2 className="font-display text-[15px] font-semibold text-ink">{title}</h2>
+        {subtitle && <p className="mt-0.5 text-[12px] text-ink-muted">{subtitle}</p>}
+      </div>
+      {action}
+    </div>
+    <div className="mt-4">{children}</div>
+  </section>
+);
+
+const Fact = ({ icon: Icon, label, children }) => (
+  <div className="min-w-0">
+    <p className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.07em] text-ink-muted">
+      {Icon && <Icon className="size-3 text-brand-600" aria-hidden="true" />}
+      {label}
+    </p>
+    <p className="mt-1 break-words text-[13px] text-ink">{children ?? '—'}</p>
+  </div>
+);
+
+/* -------------------------------------------------------------------------- */
+/* Messages                                                                    */
+/* -------------------------------------------------------------------------- */
+
+const MessageThread = ({ bookingId }) => {
+  const { data: messages, isLoading } = useBookingMessages(bookingId);
+  const { sendMessage, isPending } = useSendMessage(bookingId);
+  const [draft, setDraft] = useState('');
+
+  const submit = (event) => {
+    event.preventDefault();
+    const body = draft.trim();
+    if (!body) return;
+    sendMessage(body);
+    setDraft('');
+  };
+
+  return (
+    <>
+      {isLoading ? (
+        <Skeleton className="h-20 w-full" />
+      ) : messages?.length ? (
+        <ul className="max-h-64 space-y-2.5 overflow-y-auto pr-1">
+          {messages.map((message) => (
+            <li
+              key={message.id}
+              className={cn(
+                'max-w-[85%] rounded-lg px-3 py-2 text-[12.5px]',
+                message.isStaff ? 'bg-line-soft text-ink' : 'ml-auto bg-brand-50 text-ink',
+              )}
+            >
+              <p className="whitespace-pre-wrap">{message.body}</p>
+              <p className="mt-1 text-[10px] text-ink-muted">
+                {message.isStaff ? 'Alotel Spaces' : 'You'}
+                {message.createdAt ? ` · ${formatDate(message.createdAt)}` : ''}
+              </p>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-[12.5px] text-ink-muted">
+          No messages yet. Ask us anything about this stay — arrival times, access, anything at all.
+        </p>
+      )}
+
+      <form onSubmit={submit} className="mt-3 flex items-end gap-2">
+        <Textarea
+          rows={2}
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          placeholder="Write a message…"
+          aria-label="Message about this booking"
+          containerClassName="flex-1"
+        />
+        <Button
+          type="submit"
+          disabled={isPending || !draft.trim()}
+          isLoading={isPending}
+          leftIcon={<Send className="size-3.5" aria-hidden="true" />}
+        >
+          Send
+        </Button>
+      </form>
+    </>
+  );
+};
+
+/* -------------------------------------------------------------------------- */
+/* Page                                                                        */
+/* -------------------------------------------------------------------------- */
+
+export const BookingDetailPage = () => {
+  const { bookingId } = useParams();
+  const { user } = useAuth();
+
+  const { data: booking, isLoading, isError, error } = useBooking(bookingId);
+  const { data: timeline } = useBookingTimeline(bookingId);
+  const { data: receipt } = useBookingReceipt(bookingId);
+  const { data: property } = useProperty(booking?.propertyId);
+  const { data: paymentOptions } = usePaymentOptions(booking?.currency ?? 'GBP');
+
+  const { initiatePaymentAsync, isPending: isPaying } = useInitiatePayment();
+  const { cancelBooking, isPending: isCancelling } = useCancelBooking();
+
+  const receiptRef = useRef(null);
+  const [isCancelOpen, setIsCancelOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
+  const [payError, setPayError] = useState('');
+
+  if (isLoading) {
+    return (
+      <div className="shell space-y-4 py-10">
+        <Skeleton className="h-8 w-64" />
+        <Skeleton className="h-40 w-full" />
+        <Skeleton className="h-64 w-full" />
+      </div>
+    );
+  }
+
+  if (isError || !booking) {
+    return (
+      <div className="shell py-10">
+        <EmptyState
+          title="We could not load this booking"
+          description={getErrorMessage(error) || 'It may have been removed, or belong to another account.'}
+          action={<Button to={paths.dashboard}>Back to dashboard</Button>}
+        />
+      </div>
+    );
+  }
+
+  const needsPayment = booking.status === 'pending_payment';
+  const canCancel = !['cancelled', 'refunded', 'completed'].includes(booking.status);
+  const isStayable = ['active', 'completed'].includes(booking.status);
+  const isIdVerified = Boolean(timeline?.steps?.find((step) => step.id === 'id_verified')?.isComplete);
+
+  /** Re-open checkout for a booking that never got paid. */
+  const retryPayment = async () => {
+    setPayError('');
+    try {
+      const intent = await initiatePaymentAsync({
+        bookingId: booking.id,
+        currency: booking.currency,
+        provider: paymentOptions?.providerByCurrency?.[booking.currency],
+      });
+
+      if (intent.paymentUrl) {
+        window.location.assign(intent.paymentUrl);
+        return;
+      }
+      setPayError('The payment provider did not return a checkout page. Please try again shortly.');
+    } catch (paymentError) {
+      setPayError(getErrorMessage(paymentError));
+    }
+  };
+
+  return (
+    <div className="print-receipt-host">
+      <div className="shell py-8">
+        <Link
+          to={paths.dashboard}
+          className="inline-flex items-center gap-1.5 text-[13px] text-ink-soft transition-colors hover:text-brand-700"
+        >
+          <ArrowLeft className="size-4" aria-hidden="true" />
+          Back to dashboard
+        </Link>
+
+        {/* Header */}
+        <header className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex min-w-0 gap-4">
+            <Image
+              src={property?.images?.[0]}
+              alt={property?.name ?? ''}
+              wrapperClassName="hidden h-20 w-28 shrink-0 rounded-lg sm:block"
+            />
+            <div className="min-w-0">
+              <h1 className="font-display text-[22px] font-bold text-brand-700 sm:text-[26px]">
+                {property?.name ?? 'Your booking'}
+              </h1>
+              {property && (
+                <p className="mt-1 inline-flex items-center gap-1.5 text-[13px] text-ink-soft">
+                  <MapPin className="size-3.5 text-brand-600" aria-hidden="true" />
+                  {property.city}, {property.country}
+                </p>
+              )}
+              <p className="mt-1 font-mono text-[11px] text-ink-muted">{booking.id}</p>
+            </div>
+          </div>
+
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <Badge variant={STATUS_VARIANT[booking.status] ?? 'neutral'}>{booking.statusLabel}</Badge>
+          </div>
+        </header>
+
+        {/* Payment problem — the loudest thing on the page when it applies. */}
+        {needsPayment && (
+          <Alert variant="warn" title="This booking is not paid yet" className="mt-5">
+            <p>
+              Your dates are held, but the stay is not confirmed until payment completes. Any nights can still be taken
+              by another guest until then.
+            </p>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <Button
+                size="sm"
+                onClick={retryPayment}
+                isLoading={isPaying}
+                leftIcon={<CreditCard className="size-3.5" aria-hidden="true" />}
+              >
+                {booking.pricing ? `Pay ${formatCurrency(booking.pricing.totalDueNow, booking.currency)}` : 'Retry payment'}
+              </Button>
+              <Button size="sm" variant="secondary" to={paths.booking(booking.propertyId)}>
+                Open checkout
+              </Button>
+            </div>
+            {payError && <p className="mt-2 text-[12px] text-danger">{payError}</p>}
+          </Alert>
+        )}
+
+        <div className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,20rem)]">
+          {/* Main column */}
+          <div className="space-y-5">
+            <Panel title="Your stay" subtitle="Everything confirmed for this reservation.">
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                <Fact icon={CalendarDays} label="Check-in">
+                  {formatDate(booking.checkIn)}
+                </Fact>
+                <Fact icon={CalendarDays} label="Check-out">
+                  {formatDate(booking.checkOut)}
+                </Fact>
+                <Fact label="Nights">{booking.nights}</Fact>
+                <Fact icon={Users} label="Guests">
+                  {booking.adults} {booking.adults === 1 ? 'adult' : 'adults'}
+                  {booking.children > 0 && `, ${booking.children} children`}
+                  {booking.infants > 0 && `, ${booking.infants} infants`}
+                </Fact>
+              </div>
+            </Panel>
+
+            <Panel
+              title="Payment summary"
+              subtitle="Exactly what the booking was priced at."
+              action={
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => window.print()}
+                  disabled={!receipt}
+                  leftIcon={<Download className="size-3.5" aria-hidden="true" />}
+                >
+                  Download receipt
+                </Button>
+              }
+            >
+              {receipt?.lineItems?.length ? (
+                <div className="space-y-1.5">
+                  {receipt.lineItems.map((item, index) => (
+                    <div key={`${item.type}-${index}`} className="flex justify-between gap-4 text-[12.5px]">
+                      <span className="text-ink-soft">
+                        {item.label}
+                        {item.quantity > 1 && <span className="text-ink-muted"> × {item.quantity}</span>}
+                      </span>
+                      <span className="tabular-nums text-ink">
+                        {formatCurrency(item.total, item.currency ?? booking.currency)}
+                      </span>
+                    </div>
+                  ))}
+                  {receipt.totals && (
+                    <div className="flex justify-between gap-4 border-t border-line pt-2 text-[13px] font-semibold">
+                      <span className="text-ink">Total</span>
+                      <span className="tabular-nums text-brand-700">
+                        {formatCurrency(receipt.totals.totalDueNow, receipt.currency)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <PriceSummary
+                  pricing={booking.pricing}
+                  nights={booking.nights}
+                  currency={booking.currency}
+                  country={property?.location}
+                />
+              )}
+
+              <div className="mt-4 border-t border-line pt-3">
+                <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.07em] text-ink-muted">Payments</p>
+                {receipt?.payments?.length ? (
+                  <ul className="space-y-1.5">
+                    {receipt.payments.map((payment, index) => (
+                      <li key={payment.id ?? index} className="flex justify-between gap-4 text-[12.5px]">
+                        <span className="text-ink-soft">
+                          {payment.provider} · {payment.status}
+                        </span>
+                        <span className="tabular-nums text-ink">
+                          {formatCurrency(payment.amount, payment.currency ?? booking.currency)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-[12px] text-ink-muted">Nothing has settled against this booking yet.</p>
+                )}
+              </div>
+            </Panel>
+
+            <Panel title="Messages" subtitle="Talk to us about this stay.">
+              <MessageThread bookingId={booking.id} />
+            </Panel>
+
+            {/* Post-stay actions the API does not model yet. */}
+            {isStayable && (
+              <Panel title="After your stay" subtitle="Coming soon — these are not connected yet.">
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" variant="secondary" disabled leftIcon={<Star className="size-3.5" aria-hidden="true" />}>
+                    Leave a review
+                  </Button>
+                  <Button size="sm" variant="secondary" disabled leftIcon={<BookOpen className="size-3.5" aria-hidden="true" />}>
+                    Open guidebook
+                  </Button>
+                  <Button size="sm" variant="secondary" disabled leftIcon={<CalendarDays className="size-3.5" aria-hidden="true" />}>
+                    Request an extension
+                  </Button>
+                </div>
+                <p className="mt-2 text-[11px] text-ink-muted">
+                  The API has endpoints for all three, but their request shapes are not verified yet — see the notes
+                  handed over with this work.
+                </p>
+              </Panel>
+            )}
+          </div>
+
+          {/* Sidebar */}
+          <div className="space-y-5">
+            <Panel title="Progress" subtitle="Where this booking has got to.">
+              {timeline?.steps?.length ? (
+                <BookingProgress timeline={timeline} />
+              ) : (
+                <Skeleton className="h-40 w-full" />
+              )}
+            </Panel>
+
+            <Panel title="Verification" subtitle="Identity checks for this stay.">
+              <p className="flex items-center gap-2 text-[12.5px] text-ink-soft">
+                <ShieldCheck className="size-4 shrink-0 text-brand-600" aria-hidden="true" />
+                {isIdVerified ? 'Identity verified' : 'Not verified yet'}
+              </p>
+              {!isIdVerified && (
+                <Button size="sm" fullWidth className="mt-3" to={paths.booking(booking.propertyId)}>
+                  Verify identity
+                </Button>
+              )}
+            </Panel>
+
+            {canCancel && (
+              <Panel title="Need to change plans?" subtitle="Cancellation follows the policy agreed at booking.">
+                <Button
+                  variant="secondary"
+                  fullWidth
+                  onClick={() => setIsCancelOpen(true)}
+                  leftIcon={<XCircle className="size-4" aria-hidden="true" />}
+                >
+                  Cancel this booking
+                </Button>
+              </Panel>
+            )}
+
+            <Panel title="Support" subtitle="We reply within an hour on average.">
+              <p className="inline-flex items-center gap-2 text-[12.5px] text-ink-soft">
+                <MessageSquare className="size-4 text-brand-600" aria-hidden="true" />
+                Use the message thread on this page.
+              </p>
+            </Panel>
+          </div>
+        </div>
+      </div>
+
+      {/* Off-screen until printed */}
+      <BookingReceipt ref={receiptRef} receipt={receipt} booking={booking} property={property} guest={user} />
+
+      <Modal
+        isOpen={isCancelOpen}
+        onClose={() => setIsCancelOpen(false)}
+        title="Cancel this booking?"
+        description="We will confirm by email and process any refund you are due."
+        size="sm"
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setIsCancelOpen(false)}>
+              Keep booking
+            </Button>
+            <Button
+              variant="danger"
+              isLoading={isCancelling}
+              onClick={() => {
+                cancelBooking({ bookingId: booking.id, reason: cancelReason });
+                setIsCancelOpen(false);
+              }}
+            >
+              Cancel booking
+            </Button>
+          </div>
+        }
+      >
+        <Alert variant="warn" title="This cannot be undone">
+          Any refund is calculated from the cancellation policy that applied when you booked.
+        </Alert>
+        <Textarea
+          label="Reason (optional)"
+          rows={2}
+          className="mt-3"
+          value={cancelReason}
+          onChange={(event) => setCancelReason(event.target.value)}
+          placeholder="Helps us improve — and speeds up any refund review."
+        />
+      </Modal>
+    </div>
+  );
+};

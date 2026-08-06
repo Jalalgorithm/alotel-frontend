@@ -1,4 +1,4 @@
-import { AlertCircle, CheckCircle2, Info, ShieldCheck } from 'lucide-react';
+import { AlertCircle, AlertTriangle, CheckCircle2, Info, ShieldCheck } from 'lucide-react';
 import { cn } from '@/utils/classNames';
 
 const VARIANTS = {
@@ -13,6 +13,12 @@ const VARIANTS = {
     icon: ShieldCheck,
     tone: 'text-brand-600',
   },
+  /**
+   * Something needs the guest's attention but nothing has gone wrong — an
+   * unpaid booking, a cancellation warning. Distinct from `error`, which is
+   * for a failure that already happened.
+   */
+  warn: { wrapper: 'bg-gold/10 border-l-4 border-gold', icon: AlertTriangle, tone: 'text-gold' },
   error: { wrapper: 'bg-danger/5 border-l-4 border-danger', icon: AlertCircle, tone: 'text-danger' },
 };
 

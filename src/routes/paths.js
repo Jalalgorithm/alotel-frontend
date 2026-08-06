@@ -8,6 +8,12 @@ export const paths = {
   about: '/about',
   support: '/support',
 
+  /** Legal pages, each filled by a Termageddon policy. */
+  privacy: '/privacy-policy',
+  terms: '/terms-of-service',
+  cookies: '/cookie-policy',
+  disclaimer: '/disclaimer',
+
   // Auth
   login: '/login',
   signup: '/signup',
@@ -23,6 +29,7 @@ export const paths = {
   // Protected
   dashboard: '/dashboard',
   booking: (propertyId = ':propertyId') => `/book/${propertyId}`,
+  bookingDetail: (bookingId = ':bookingId') => `/bookings/${bookingId}`,
 
   /**
    * Fixed by the backend: it builds Stripe's `success_url` / `cancel_url` from

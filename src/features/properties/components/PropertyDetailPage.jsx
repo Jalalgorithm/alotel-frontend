@@ -68,9 +68,19 @@ export const PropertyDetailPage = () => {
         <PropertyGallery property={property} />
       </div>
 
-      <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-        {/* Main column */}
-        <div className="space-y-6">
+      {/*
+        Three blocks rather than two columns, so the booking panel can sit in
+        the middle of the content on a phone.
+
+        Source order is the mobile order: details → booking panel → location and
+        FAQs. Stacked, that puts the price and the "Book now" button directly
+        after the amenities, instead of stranding it below the FAQ accordion
+        where nobody scrolls. On `lg` the explicit row/column placement
+        reassembles it into the original two-column layout.
+      */}
+      <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+        {/* Details — the part a guest reads before deciding */}
+        <div className="space-y-6 lg:col-start-1 lg:row-start-1">
           {/* The API models the counts but not the prose describing them, so
               each tile falls back to the number alone rather than printing a
               half-sentence with a missing half. */}
@@ -114,6 +124,15 @@ export const PropertyDetailPage = () => {
           )}
 
           <PropertyAmenities amenities={property.amenities} />
+        </div>
+
+        {/* Booking panel — second on mobile, right-hand column on desktop */}
+        <div className="lg:col-start-2 lg:row-span-2 lg:row-start-1">
+          <BookingSidebar property={property} />
+        </div>
+
+        {/* Supporting detail — read after the decision, not before it */}
+        <div className="space-y-6 lg:col-start-1 lg:row-start-2">
           <LocationLandmarks property={property} />
 
           <section>
@@ -121,8 +140,6 @@ export const PropertyDetailPage = () => {
             <Accordion items={faqs} className="mt-4" />
           </section>
         </div>
-
-        <BookingSidebar property={property} />
       </div>
 
       <SimilarProperties propertyId={property.id} />

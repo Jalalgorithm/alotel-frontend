@@ -30,7 +30,11 @@ const ResetPasswordPage = lazy(() =>
 );
 const TwoFactorPage = lazy(() => import('@/features/auth').then((m) => ({ default: m.TwoFactorPage })));
 const DashboardPage = lazy(() => import('@/features/dashboard').then((m) => ({ default: m.DashboardPage })));
+const PolicyPage = lazy(() => import('@/features/legal').then((m) => ({ default: m.PolicyPage })));
 const BookingPage = lazy(() => import('@/features/booking').then((m) => ({ default: m.BookingPage })));
+const BookingDetailPage = lazy(() =>
+  import('@/features/booking').then((m) => ({ default: m.BookingDetailPage })),
+);
 const BookingSuccessPage = lazy(() =>
   import('@/features/booking').then((m) => ({ default: m.BookingSuccessPage })),
 );
@@ -52,9 +56,16 @@ export const AppRoutes = () => (
         <Route path={paths.about} element={<ComingSoonPage title="About Alotel Spaces" />} />
         <Route path={paths.support} element={<ComingSoonPage title="Support & policies" />} />
 
+        {/* Legal — each renders its Termageddon policy */}
+        <Route path={paths.privacy} element={<PolicyPage policyId="privacy" />} />
+        <Route path={paths.terms} element={<PolicyPage policyId="terms" />} />
+        <Route path={paths.cookies} element={<PolicyPage policyId="cookies" />} />
+        <Route path={paths.disclaimer} element={<PolicyPage policyId="disclaimer" />} />
+
         {/* Authenticated area, inside the site chrome */}
         <Route element={<ProtectedRoute />}>
           <Route path={paths.dashboard} element={<DashboardPage />} />
+          <Route path={paths.bookingDetail()} element={<BookingDetailPage />} />
         </Route>
 
         <Route path="*" element={<NotFoundPage />} />

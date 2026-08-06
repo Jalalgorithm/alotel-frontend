@@ -43,7 +43,7 @@ export const BookingList = ({ bookings = [] }) => {
 
           <div className="min-w-0 flex-1">
             <h3 className="truncate font-display text-[14px] font-semibold">
-              <Link to={paths.propertyDetail(booking.propertyId)} className="transition-colors hover:text-brand-700">
+              <Link to={paths.bookingDetail(booking.id)} className="transition-colors hover:text-brand-700">
                 {booking.propertyName}
               </Link>
             </h3>
@@ -66,15 +66,20 @@ export const BookingList = ({ bookings = [] }) => {
 
             {/* A held booking still needs paying — send the guest back to it
                 rather than leaving them to work out what to do next. */}
-            {booking.status === 'pending_payment' && (
-              <Button
-                size="sm"
-                to={paths.booking(booking.propertyId)}
-                leftIcon={<CreditCard className="size-3.5" aria-hidden="true" />}
-              >
-                Complete payment
+            <div className="flex items-center gap-2">
+              {booking.status === 'pending_payment' && (
+                <Button
+                  size="sm"
+                  to={paths.bookingDetail(booking.id)}
+                  leftIcon={<CreditCard className="size-3.5" aria-hidden="true" />}
+                >
+                  Complete payment
+                </Button>
+              )}
+              <Button size="sm" variant="secondary" to={paths.bookingDetail(booking.id)}>
+                View details
               </Button>
-            )}
+            </div>
 
             <p className="font-mono text-[10.5px] text-ink-muted">{String(booking.id).slice(0, 8)}</p>
           </div>

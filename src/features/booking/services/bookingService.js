@@ -8,7 +8,11 @@ import {
   toAvailability,
   toBooking,
   toBookingSummary,
+  toMessage,
+  toNotification,
   toPaymentIntent,
+  toReceipt,
+  toTimeline,
 } from '@/lib/bookingSchema';
 
 /**
@@ -90,14 +94,46 @@ const mockBookings = {
     return clone(booking);
   },
 
-  async timeline() {
+  async timeline(bookingId) {
     await delay(200);
-    return [];
+    return {
+      bookingId,
+      status: 'pending_payment',
+      steps: [
+        { id: 'booked', label: 'Booked', isComplete: true, completedAt: new Date().toISOString() },
+        { id: 'paid', label: 'Paid', isComplete: false, completedAt: null },
+        { id: 'checked_in', label: 'Checked In', isComplete: false, completedAt: null },
+      ],
+    };
   },
 
   async receipt(bookingId) {
     await delay(300);
-    return { booking_id: bookingId, line_items: [], payments: [] };
+    return {
+      bookingId,
+      status: 'pending_payment',
+      statusLabel: 'Payment pending',
+      currency: 'GBP',
+      totals: null,
+      lineItems: [],
+      payments: [],
+      generatedAt: new Date().toISOString(),
+    };
+  },
+
+  async messages() {
+    await delay(200);
+    return [];
+  },
+
+  async sendMessage(bookingId, body) {
+    await delay(300);
+    return { id: createId('msg'), body, isStaff: false, createdAt: new Date().toISOString() };
+  },
+
+  async notifications() {
+    await delay(200);
+    return [];
   },
 
   async cancel(bookingId, reason) {
@@ -211,12 +247,28 @@ const realBookings = {
 
   async timeline(bookingId) {
     const { data } = await apiClient.get(`/bookings/${bookingId}/timeline/`);
-    return data;
+    return toTimeline(data);
   },
 
   async receipt(bookingId) {
     const { data } = await apiClient.get(`/bookings/${bookingId}/receipt/`);
-    return data;
+    return toReceipt(data);
+  },
+
+  /** The support thread attached to a booking. */
+  async messages(bookingId) {
+    const { data } = await apiClient.get(`/messages/${bookingId}/`);
+    return (data?.results ?? data ?? []).map(toMessage);
+  },
+
+  async sendMessage(bookingId, body) {
+    const { data } = await apiClient.post(`/messages/${bookingId}/`, { body });
+    return toMessage(data);
+  },
+
+  async notifications(guestId) {
+    const { data } = await apiClient.get(`/notifications/${guestId}/`);
+    return (data?.results ?? data ?? []).map(toNotification);
   },
 
   async cancel(bookingId, reason = '') {
@@ -309,4 +361,7 @@ export const bookingService = {
   startIdentity: (bookingId) => backend.startIdentity(bookingId),
   getIdentityStatus: (guestId) => backend.identityStatus(guestId),
   getTaxRules: () => backend.taxRules(),
+  getMessages: (bookingId) => backend.messages(bookingId),
+  sendMessage: (bookingId, body) => backend.sendMessage(bookingId, body),
+  getNotifications: (guestId) => backend.notifications(guestId),
 };

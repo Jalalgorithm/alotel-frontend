@@ -27,10 +27,10 @@ const FOOTER_COLUMNS = [
   {
     title: 'Legal & Regional',
     links: [
-      { label: 'Privacy Policy(GDPR)', to: paths.support },
-      { label: 'Success Stories(NDPR)', to: paths.about },
-      { label: 'Terms of Service', to: paths.support },
-      { label: 'Cookie Settings', to: paths.support },
+      { label: 'Privacy Policy (GDPR)', to: paths.privacy },
+      { label: 'Disclaimer', to: paths.disclaimer },
+      { label: 'Terms of Service', to: paths.terms },
+      { label: 'Cookie Policy', to: paths.cookies },
     ],
   },
   {
@@ -141,13 +141,13 @@ export const Footer = () => {
         <div className="flex flex-col gap-3 border-t border-white/10 pt-6 text-[12px] text-white/50 sm:flex-row sm:items-center sm:justify-between">
           <p>© {new Date().getFullYear()} Alotel Spaces. All rights reserved.</p>
           <div className="flex flex-wrap gap-x-6 gap-y-2">
-            <Link to={paths.support} className="py-1 transition-colors hover:text-white">
+            <Link to={paths.privacy} className="py-1 transition-colors hover:text-white">
               Privacy Policy
             </Link>
-            <Link to={paths.support} className="py-1 transition-colors hover:text-white">
+            <Link to={paths.terms} className="py-1 transition-colors hover:text-white">
               Terms of Service
             </Link>
-            <Link to={paths.support} className="py-1 transition-colors hover:text-white">
+            <Link to={paths.cookies} className="py-1 transition-colors hover:text-white">
               Cookie Policy
             </Link>
           </div>

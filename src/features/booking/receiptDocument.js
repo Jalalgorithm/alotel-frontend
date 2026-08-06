@@ -1,4 +1,5 @@
 import { formatCurrency, formatDate } from '@/utils/format';
+import { brandMarkSvg } from '@/lib/brandMark';
 
 /**
  * The downloadable receipt, built as a complete standalone HTML document and
@@ -52,8 +53,10 @@ const STYLES = `
     align-items: flex-start;
     gap: 24px;
   }
-  .brand { font-size: 21px; font-weight: 700; letter-spacing: -0.2px; }
-  .brand span { display: block; font-size: 9.5px; font-weight: 600; letter-spacing: 3.4px; opacity: .75; margin-top: 2px; }
+  .brand { display: flex; align-items: center; gap: 11px; }
+  .brand svg { flex: 0 0 auto; }
+  .brand .wordmark { font-size: 21px; font-weight: 700; letter-spacing: -0.2px; line-height: 1.05; }
+  .brand .wordmark span { display: block; font-size: 9.5px; font-weight: 600; letter-spacing: 3.4px; opacity: .75; margin-top: 2px; }
   .doc-type { text-align: right; }
   .doc-type h1 { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: .5px; text-transform: uppercase; }
   .doc-type p { margin: 4px 0 0; font-size: 10.5px; opacity: .8; }
@@ -105,6 +108,33 @@ const STYLES = `
     font-size: 9.5px; color: #7c8a83; line-height: 1.6;
   }
   footer strong { color: #1c2b24; }
+
+  /*
+   * Watermark. A fixed position is what makes it repeat on every printed
+   * page — a normally-positioned element would appear once and then scroll
+   * away. It sits behind the content and is faint enough to read straight
+   * through. The exact print-color-adjust on the body stops the printer
+   * dropping it as a background.
+   *
+   * (No backticks in this comment: the whole block is a template literal.)
+   */
+  .watermark {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 460px;
+    text-align: center;
+    color: #12603f;
+    opacity: 0.045;
+    z-index: 0;
+    pointer-events: none;
+  }
+  .watermark .mark-text { font-size: 62px; font-weight: 700; letter-spacing: -1px; line-height: 1; margin-top: 10px; }
+  .watermark .mark-sub { font-size: 25px; font-weight: 600; letter-spacing: 15px; margin-top: 4px; }
+
+  /* Everything else rides above the watermark. */
+  .sheet { position: relative; z-index: 1; }
 
   @page { size: A4; margin: 14mm; }
   @media print {
@@ -167,9 +197,15 @@ export const buildReceiptHtml = ({ receipt, booking, property, guest }) => {
 <style>${STYLES}</style>
 </head>
 <body>
+  <div class="watermark" aria-hidden="true">
+    ${brandMarkSvg({ size: 190, color: '#12603f' })}
+    <div class="mark-text">Alotel</div>
+    <div class="mark-sub">SPACES</div>
+  </div>
+
   <div class="sheet">
     <div class="band">
-      <div class="brand">Alotel<span>SPACES</span></div>
+      <div class="brand">${brandMarkSvg({ size: 38, color: '#ffffff' })}<div class="wordmark">Alotel<span>SPACES</span></div></div>
       <div class="doc-type">
         <h1>Booking receipt</h1>
         <p>Issued ${escapeHtml(formatDate(receipt.generatedAt ?? new Date().toISOString()))}</p>

@@ -1,36 +1,33 @@
 import { Link } from 'react-router-dom';
 import { cn } from '@/utils/classNames';
 import { paths } from '@/routes/paths';
+import { BRAND_MARK_SHAPES, BRAND_MARK_VIEWBOX } from '@/lib/brandMark';
 
 /**
  * The Alotel Spaces mark — the A-frame with an arched doorway.
  *
- * Geometry is taken verbatim from the supplied brand asset
- * (`alotel-logo-only.svg`) with the `<rect>` matte removed, so the mark is
- * transparent and sits on any surface. Strokes use `currentColor`, letting the
- * parent decide the colour (brand green on light, white over photography).
+ * Geometry lives in `@/lib/brandMark` so the printed receipt — which builds
+ * HTML by hand and cannot import components — draws the identical mark.
+ * Strokes use `currentColor`, letting the parent decide the colour (brand green
+ * on light, white over photography).
  */
 export const LogoMark = ({ className }) => (
-  <svg viewBox="0 0 1000 1000" className={cn('shrink-0', className)} aria-hidden="true" fill="none">
-    {/* A-frame */}
-    <path
-      d="M500 120 L820 760 L180 760 Z"
-      stroke="currentColor"
-      strokeWidth="42"
-      strokeLinejoin="round"
-    />
-    {/* Apex ring */}
-    <circle cx="500" cy="120" r="26" stroke="currentColor" strokeWidth="24" />
-    {/* Arched doorway */}
-    <path
-      d="M420 760 L420 500 Q420 430 500 430 Q580 430 580 500 L580 760"
-      stroke="currentColor"
-      strokeWidth="42"
-    />
-    {/* Lintel */}
-    <line x1="370" y1="560" x2="630" y2="560" stroke="currentColor" strokeWidth="42" strokeLinecap="round" />
-    {/* Door handle */}
-    <circle cx="545" cy="650" r="17" fill="currentColor" />
+  <svg viewBox={BRAND_MARK_VIEWBOX} className={cn('shrink-0', className)} aria-hidden="true" fill="none">
+    {BRAND_MARK_SHAPES.map((shape, index) => {
+      const paint = shape.fill
+        ? { fill: 'currentColor' }
+        : {
+            fill: 'none',
+            stroke: 'currentColor',
+            strokeWidth: shape.width,
+            ...(shape.join ? { strokeLinejoin: shape.join } : {}),
+            ...(shape.cap ? { strokeLinecap: shape.cap } : {}),
+          };
+
+      if (shape.tag === 'path') return <path key={index} d={shape.d} {...paint} />;
+      if (shape.tag === 'circle') return <circle key={index} cx={shape.cx} cy={shape.cy} r={shape.r} {...paint} />;
+      return <line key={index} x1={shape.x1} y1={shape.y1} x2={shape.x2} y2={shape.y2} {...paint} />;
+    })}
   </svg>
 );
 

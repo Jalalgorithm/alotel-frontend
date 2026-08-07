@@ -9,6 +9,8 @@ import { GuestDetailsStep } from './GuestDetailsStep';
 import { ReviewStep } from './ReviewStep';
 import { VerifyIdentityStep } from './VerifyIdentityStep';
 import { PaymentStep } from './PaymentStep';
+import { AgreementStep } from './AgreementStep';
+import { useBooking } from '../hooks/useBookingMutations';
 import { SuccessStep } from './SuccessStep';
 import { useBookingWizard } from '../hooks/useBookingWizard';
 import {
@@ -53,6 +55,11 @@ export const BookingPage = () => {
   const { startIdentityAsync, isPending: isVerifying } = useStartIdentity();
   const { initiatePaymentAsync, isPending: isPaying, error: paymentError } = useInitiatePayment();
   const { data: paymentOptions, isLoading: isLoadingOptions } = usePaymentOptions(currency ?? 'GBP');
+  /**
+   * The agreement step needs the server's view of the booking, not the draft.
+   * Declared with the other hooks so it runs before the early returns below.
+   */
+  const { data: booking } = useBooking(draft.bookingId);
 
   if (isLoading) return <Loading label="Preparing your booking…" />;
 
@@ -181,10 +188,18 @@ export const BookingPage = () => {
         isPending={isVerifying}
       />
     ),
+    agreement: () => (
+      <AgreementStep
+        booking={booking}
+        property={property}
+        nights={nights}
+        onBack={previousStep}
+        onContinue={nextStep}
+      />
+    ),
     payment: () => (
       <PaymentStep
         bookingId={draft.bookingId}
-        property={property}
         amount={pricing?.totalDueNow ?? 0}
         currency={currency}
         pricing={pricing}

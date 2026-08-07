@@ -12,6 +12,7 @@ export const BOOKING_STEPS = [
   { id: 'details', label: 'Guest Details' },
   { id: 'review', label: 'Review Booking' },
   { id: 'identity', label: 'Verify Identity' },
+  { id: 'agreement', label: 'Agreement' },
   { id: 'payment', label: 'Payment' },
   { id: 'success', label: 'Confirmation' },
 ];

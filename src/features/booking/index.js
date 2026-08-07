@@ -21,5 +21,8 @@ export {
   useBookingMessages,
   useSendMessage,
   useNotifications,
+  useContractText,
+  useContractStatus,
+  useAcceptAgreement,
 } from './hooks/useBookingMutations';
 export { bookingService } from './services/bookingService';

@@ -1,10 +1,11 @@
 import { Link } from 'react-router-dom';
-import { CreditCard, MapPin } from 'lucide-react';
+import { CreditCard, FileCheck, MapPin } from 'lucide-react';
 import { Image } from '@/components/ui/Image';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { formatDate } from '@/utils/format';
+import { cn } from '@/utils/classNames';
 import { paths } from '@/routes/paths';
 import { BOOKING_STATUS_LABELS } from '@/lib/bookingSchema';
 
@@ -57,6 +58,23 @@ export const BookingList = ({ bookings = [] }) => {
               <MapPin className="size-3 text-brand-600" aria-hidden="true" />
               Booked {formatDate(booking.createdAt)}
             </p>
+
+            {/* The list endpoint does not return the agreement fields yet, so
+                this only appears once it does — better a missing chip than one
+                that claims "not agreed" because the data simply is not there. */}
+            {booking.agreementAccepted !== null && booking.agreementAccepted !== undefined && (
+              <p
+                className={cn(
+                  'mt-1 inline-flex items-center gap-1 text-[11px]',
+                  booking.agreementAccepted ? 'text-brand-600' : 'text-ink-muted',
+                )}
+              >
+                <FileCheck className="size-3" aria-hidden="true" />
+                {booking.agreementAccepted
+                  ? `Agreement accepted${booking.agreementAcceptedAt ? ` · ${formatDate(booking.agreementAcceptedAt)}` : ''}`
+                  : 'Agreement outstanding'}
+              </p>
+            )}
           </div>
 
           <div className="flex items-center justify-between gap-4 sm:flex-col sm:items-end">

@@ -37,6 +37,8 @@ export const queryKeys = {
     receipt: (id) => ['bookings', 'receipt', id],
     taxRules: () => ['bookings', 'tax-rules'],
     timeline: (id) => ['bookings', 'timeline', id],
+    contractText: (id) => ['bookings', 'contract-text', id],
+    contractStatus: (id) => ['bookings', 'contract-status', id],
     messages: (id) => ['bookings', 'messages', id],
     notifications: (guestId) => ['bookings', 'notifications', guestId],
   },

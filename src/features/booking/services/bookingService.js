@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/apiClient';
+import { toContractStatus, toContractText } from '@/lib/agreementSchema';
 import { env } from '@/lib/env';
 import { authStorage, jsonStorage } from '@/lib/storage';
 import { ApiError } from '@/utils/errors';
@@ -124,6 +125,21 @@ const mockBookings = {
   async messages() {
     await delay(200);
     return [];
+  },
+
+  async contractText() {
+    await delay(250);
+    return null;
+  },
+
+  async contractStatus() {
+    await delay(200);
+    return null;
+  },
+
+  async acceptAgreement(bookingId) {
+    await delay(300);
+    return { bookingId, agreementAccepted: true, agreementAcceptedAt: new Date().toISOString() };
   },
 
   async sendMessage(bookingId, body) {
@@ -255,6 +271,43 @@ const realBookings = {
     return toReceipt(data);
   },
 
+  /**
+   * The agreement text for a booking, straight from the server.
+   *
+   * 404 means no contract has been issued — normal for a short stay, which is
+   * covered by the checkbox instead — so it resolves to null rather than
+   * throwing and blanking the page.
+   */
+  async contractText(bookingId) {
+    try {
+      const { data } = await apiClient.get(`/contracts/booking/${bookingId}/text/`);
+      return toContractText(data);
+    } catch (error) {
+      if (error?.status === 404 || error?.response?.status === 404) return null;
+      throw error;
+    }
+  },
+
+  async contractStatus(contractId) {
+    const { data } = await apiClient.get(`/contracts/${contractId}/status/`);
+    return toContractStatus(data);
+  },
+
+  /**
+   * Record that the guest accepted the booking agreement.
+   *
+   * The API refuses this for stays that need a signed contract, so the caller
+   * must only offer the checkbox when `contractRequired` is false.
+   */
+  async acceptAgreement(bookingId) {
+    const { data } = await apiClient.post(`/bookings/${bookingId}/accept-agreement/`);
+    return {
+      bookingId: data.booking_id,
+      agreementAccepted: Boolean(data.agreement_accepted),
+      agreementAcceptedAt: data.agreement_accepted_at ?? null,
+    };
+  },
+
   /** The support thread attached to a booking. */
   async messages(bookingId) {
     const { data } = await apiClient.get(`/messages/${bookingId}/`);
@@ -361,6 +414,9 @@ export const bookingService = {
   startIdentity: (bookingId) => backend.startIdentity(bookingId),
   getIdentityStatus: (guestId) => backend.identityStatus(guestId),
   getTaxRules: () => backend.taxRules(),
+  getContractText: (bookingId) => backend.contractText(bookingId),
+  getContractStatus: (contractId) => backend.contractStatus(contractId),
+  acceptAgreement: (bookingId) => backend.acceptAgreement(bookingId),
   getMessages: (bookingId) => backend.messages(bookingId),
   sendMessage: (bookingId, body) => backend.sendMessage(bookingId, body),
   getNotifications: (guestId) => backend.notifications(guestId),

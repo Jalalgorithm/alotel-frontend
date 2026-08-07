@@ -183,6 +183,8 @@ export const BookingPage = () => {
     ),
     payment: () => (
       <PaymentStep
+        bookingId={draft.bookingId}
+        property={property}
         amount={pricing?.totalDueNow ?? 0}
         currency={currency}
         pricing={pricing}

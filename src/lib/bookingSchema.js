@@ -84,6 +84,18 @@ export const toBooking = (raw) => {
     currency: raw.currency,
     pricing: toPricing(raw.pricing, raw.currency),
 
+    /**
+     * Compliance state. `contractRequired` is decided server-side from the
+     * stay length (183 nights or more) and decides which of the two agreement
+     * routes applies: a signed contract, or the checkbox the API records
+     * directly on the booking.
+     */
+    contractRequired: Boolean(raw.contract_required),
+    agreementAccepted: Boolean(raw.agreement_accepted),
+    agreementAcceptedAt: raw.agreement_accepted_at ?? null,
+    isCommercial: Boolean(raw.is_commercial),
+    kycLevelRequired: raw.kyc_level_required ?? null,
+
     lineItems: (raw.line_items ?? []).map((item) => ({
       id: item.id,
       type: item.line_type,
@@ -193,6 +205,14 @@ export const toBookingSummary = (raw) => ({
   nights: raw.nights ?? 0,
   currency: raw.currency,
   createdAt: raw.created_at,
+
+  /**
+   * Present only if the list endpoint grows these fields; the dashboard falls
+   * back to the detail payload when they are absent.
+   */
+  contractRequired: raw.contract_required ?? null,
+  agreementAccepted: raw.agreement_accepted ?? null,
+  agreementAcceptedAt: raw.agreement_accepted_at ?? null,
 });
 
 /**

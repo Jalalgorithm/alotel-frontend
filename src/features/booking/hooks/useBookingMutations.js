@@ -140,6 +140,55 @@ export const useTaxRules = () =>
     staleTime: 1000 * 60 * 60,
   });
 
+/**
+ * The agreement text for a booking.
+ *
+ * Resolves to null for a short stay, where no contract is issued and the
+ * checkbox applies instead — that is a normal state, not an error.
+ */
+export const useContractText = (bookingId) =>
+  useQuery({
+    queryKey: queryKeys.bookings.contractText(bookingId),
+    queryFn: () => bookingService.getContractText(bookingId),
+    enabled: Boolean(bookingId),
+    staleTime: 1000 * 60 * 5,
+  });
+
+/** Signature status, once a contract exists to have a status. */
+export const useContractStatus = (contractId) =>
+  useQuery({
+    queryKey: queryKeys.bookings.contractStatus(contractId),
+    queryFn: () => bookingService.getContractStatus(contractId),
+    enabled: Boolean(contractId),
+  });
+
+/**
+ * Record acceptance of the booking agreement.
+ *
+ * The booking is refetched rather than patched locally: the API stamps
+ * `agreement_accepted_at` server-side, and that timestamp is the record we
+ * display everywhere afterwards.
+ */
+export const useAcceptAgreement = () => {
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: (bookingId) => bookingService.acceptAgreement(bookingId),
+    onSuccess: (_result, bookingId) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.bookings.detail(bookingId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.bookings.list() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.summary() });
+    },
+    onError: (error) => toast.error('Could not record your agreement', getErrorMessage(error)),
+  });
+
+  return {
+    acceptAgreement: mutation.mutate,
+    acceptAgreementAsync: mutation.mutateAsync,
+    isPending: mutation.isPending,
+  };
+};
+
 /** The stay's progress steps, owned by the server. */
 export const useBookingTimeline = (bookingId) =>
   useQuery({

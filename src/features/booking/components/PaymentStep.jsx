@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 import { ProviderLogo } from '@/components/ui/ProviderLogo';
 import { StepShell, StepActions } from './StepShell';
+import { AgreementPanel } from './AgreementPanel';
+import { useBooking } from '../hooks/useBookingMutations';
 import { PriceSummary } from './PriceSummary';
 import { cn } from '@/utils/classNames';
 import { formatCurrency } from '@/utils/format';
@@ -63,6 +65,8 @@ const ProviderOption = ({ option, isSelected, onSelect }) => (
  * hardcoded copy could only ever drift out of agreement with it.
  */
 export const PaymentStep = ({
+  bookingId,
+  property,
   amount,
   currency,
   pricing,
@@ -81,6 +85,15 @@ export const PaymentStep = ({
   );
 
   const [provider, setProvider] = useState(() => defaultProviderFor(providerByCurrency, currency));
+
+  const { data: booking } = useBooking(bookingId);
+
+  /**
+   * Long stays are settled by e-signature rather than a tick, and the API
+   * refuses the checkbox for them — so payment is not gated on something the
+   * guest cannot do from this page.
+   */
+  const hasAgreed = !booking || booking.contractRequired || booking.agreementAccepted;
 
   // The default follows the currency: a guest who went back and changed dates
   // into another market must not carry the old provider forward.
@@ -103,6 +116,17 @@ export const PaymentStep = ({
 
   return (
     <StepShell title="Payment" subtitle="You will be taken to a secure checkout page to finish paying.">
+      {/*
+        The agreement is confirmed here, on the same page as payment, so the
+        guest sees exactly what they are committing to at the moment they
+        commit. The API will not confirm a booking without it, so gating the
+        Pay button matches what the server already enforces.
+      */}
+      {booking && (
+        <div className="mb-5">
+          <AgreementPanel booking={booking} property={property} />
+        </div>
+      )}
       <div className="rounded-card border border-line bg-surface p-6 shadow-card">
         {/* The same breakdown as every earlier step — a guest should never
             reach the payment screen and meet a number they have not seen. */}
@@ -160,7 +184,7 @@ export const PaymentStep = ({
           fullWidth
           size="lg"
           onClick={pay}
-          disabled={isPending || isLoadingOptions || !provider}
+          disabled={isPending || isLoadingOptions || !provider || !hasAgreed}
           leftIcon={
             isPending ? (
               <Loader2 className="size-4 animate-spin" aria-hidden="true" />
@@ -170,7 +194,11 @@ export const PaymentStep = ({
           }
           rightIcon={!isPending ? <ExternalLink className="size-3.5" aria-hidden="true" /> : undefined}
         >
-          {isPending ? 'Opening checkout…' : `Pay ${formatCurrency(amount, currency)}`}
+          {isPending
+            ? 'Opening checkout…'
+            : hasAgreed
+              ? `Pay ${formatCurrency(amount, currency)}`
+              : 'Accept the agreement to continue'}
         </Button>
 
         <Button variant="ghost" fullWidth onClick={onBack} disabled={isPending}>

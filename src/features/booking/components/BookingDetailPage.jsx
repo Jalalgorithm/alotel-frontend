@@ -7,6 +7,7 @@ import {
   CalendarDays,
   CreditCard,
   Download,
+  FileCheck,
   MapPin,
   MessageSquare,
   Send,
@@ -27,6 +28,7 @@ import { cn } from '@/utils/classNames';
 import { formatCurrency, formatDate } from '@/utils/format';
 import { getErrorMessage } from '@/utils/errors';
 import { paths } from '@/routes/paths';
+import { toAgreementState } from '@/lib/agreementSchema';
 import { useAuth } from '@/features/auth';
 import { useProperty } from '@/features/properties';
 import { BookingProgress } from './BookingProgress';
@@ -35,6 +37,8 @@ import { printReceipt } from '../receiptDocument';
 import {
   useBooking,
   useBookingMessages,
+  useContractStatus,
+  useContractText,
   useBookingReceipt,
   useBookingTimeline,
   useCancelBooking,
@@ -156,6 +160,8 @@ export const BookingDetailPage = () => {
   const { data: timeline } = useBookingTimeline(bookingId);
   const { data: receipt } = useBookingReceipt(bookingId);
   const { data: property } = useProperty(booking?.propertyId);
+  const { data: contractText } = useContractText(bookingId);
+  const { data: contract } = useContractStatus(contractText?.contractId);
   const { data: paymentOptions } = usePaymentOptions(booking?.currency ?? 'GBP');
 
   const { initiatePaymentAsync, isPending: isPaying } = useInitiatePayment();
@@ -191,6 +197,11 @@ export const BookingDetailPage = () => {
   const canCancel = !['cancelled', 'refunded', 'completed'].includes(booking.status);
   const isStayable = ['active', 'completed'].includes(booking.status);
   const isIdVerified = Boolean(timeline?.steps?.find((step) => step.id === 'id_verified')?.isComplete);
+
+  const agreement = toAgreementState(
+    { ...booking, propertyLocation: property?.location, propertyCountry: property?.country },
+    contract,
+  );
 
   /** Re-open checkout for a booking that never got paid. */
   const retryPayment = async () => {
@@ -382,6 +393,48 @@ export const BookingDetailPage = () => {
                 <BookingProgress timeline={timeline} />
               ) : (
                 <Skeleton className="h-40 w-full" />
+              )}
+            </Panel>
+
+            <Panel title="Agreement" subtitle="What you agreed to for this stay.">
+              <p className="text-[13px] font-semibold text-ink">{agreement.name}</p>
+              <p className="mt-0.5 text-[11.5px] text-ink-muted">
+                {agreement.bandLabel} · {agreement.market}
+                {agreement.isCommercial ? ' · Commercial' : ''}
+              </p>
+
+              <p
+                className={cn(
+                  'mt-3 inline-flex items-center gap-2 text-[12.5px]',
+                  agreement.isAccepted ? 'text-brand-700' : 'text-ink-soft',
+                )}
+              >
+                <FileCheck className="size-4 shrink-0" aria-hidden="true" />
+                {agreement.isAccepted
+                  ? `Agreed${agreement.acceptedAt ? ` on ${formatDate(agreement.acceptedAt)}` : ''}`
+                  : agreement.needsSignature
+                    ? agreement.contractStatusLabel ?? 'Awaiting signed contract'
+                    : 'Not yet agreed'}
+              </p>
+
+              {/* Only offered when the guest can actually act on it. */}
+              {!agreement.isAccepted && !agreement.needsSignature && needsPayment && (
+                <Button size="sm" fullWidth className="mt-3" to={paths.booking(booking.propertyId)}>
+                  Review and agree
+                </Button>
+              )}
+
+              {agreement.signedDocumentUrl && (
+                <Button
+                  size="sm"
+                  fullWidth
+                  className="mt-3"
+                  href={agreement.signedDocumentUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Open signed contract
+                </Button>
               )}
             </Panel>
 

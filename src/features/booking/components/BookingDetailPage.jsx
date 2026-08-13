@@ -32,6 +32,7 @@ import { toAgreementState } from '@/lib/agreementSchema';
 import { useAuth } from '@/features/auth';
 import { useProperty } from '@/features/properties';
 import { BookingProgress } from './BookingProgress';
+import { InspectionAcknowledgement } from './InspectionAcknowledgement';
 import { PriceSummary } from './PriceSummary';
 import { printReceipt } from '../receiptDocument';
 import {
@@ -193,6 +194,14 @@ export const BookingDetailPage = () => {
     );
   }
 
+  const isCancelled = ['cancelled', 'refunded'].includes(booking.status);
+  const cancellation = booking.cancellation;
+
+  /** What actually came back, rather than what policy says might. */
+  const refundedTotal = (receipt?.payments ?? [])
+    .filter((payment) => ['refunded', 'refund', 'reversed'].includes(String(payment.status).toLowerCase()))
+    .reduce((total, payment) => total + (payment.amount || 0), 0);
+
   const needsPayment = booking.status === 'pending_payment';
   const canCancel = !['cancelled', 'refunded', 'completed'].includes(booking.status);
   const isStayable = ['active', 'completed'].includes(booking.status);
@@ -261,8 +270,45 @@ export const BookingDetailPage = () => {
           </div>
         </header>
 
+        {/*
+          A cancelled booking gets its own explanation before anything else.
+          Without it the page reads as a normal booking with a grey badge, and
+          the guest is left to work out what happened and whether money is
+          coming back.
+        */}
+        {isCancelled && (
+          <Alert
+            variant={booking.status === 'refunded' ? 'info' : 'warn'}
+            title={booking.status === 'refunded' ? 'This booking was refunded' : 'This booking was cancelled'}
+            className="mt-5"
+          >
+            <p>
+              {cancellation?.at ? `Cancelled on ${formatDate(cancellation.at)}` : 'This stay is no longer going ahead'}
+              {cancellation?.wasByGuest === false ? ' by Alotel Spaces' : cancellation?.wasByGuest ? ' at your request' : ''}
+              {cancellation?.reason ? ` — ${cancellation.reason}` : '.'}
+            </p>
+
+            <p className="mt-2">
+              {refundedTotal > 0
+                ? `${formatCurrency(refundedTotal, booking.currency)} has been refunded to your original payment method.`
+                : cancellation?.wasPaid
+                  ? 'Any refund due follows the cancellation policy that applied when you booked. We will confirm by email.'
+                  : 'No payment had been taken, so there is nothing to refund.'}
+            </p>
+
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button size="sm" to={paths.propertyDetail(booking.propertyId)}>
+                Book these dates again
+              </Button>
+              <Button size="sm" variant="secondary" to={paths.properties}>
+                Browse other residences
+              </Button>
+            </div>
+          </Alert>
+        )}
+
         {/* Payment problem — the loudest thing on the page when it applies. */}
-        {needsPayment && (
+        {needsPayment && !isCancelled && (
           <Alert variant="warn" title="This booking is not paid yet" className="mt-5">
             <p>
               Your dates are held, but the stay is not confirmed until payment completes. Any nights can still be taken
@@ -388,7 +434,10 @@ export const BookingDetailPage = () => {
 
           {/* Status — second on mobile, right-hand column on desktop */}
           <div className="space-y-5 lg:col-start-2 lg:row-span-2 lg:row-start-1">
-            <Panel title="Progress" subtitle="Where this booking has got to.">
+            <Panel
+              title="Progress"
+              subtitle={isCancelled ? 'Where this booking got to before it ended.' : 'Where this booking has got to.'}
+            >
               {timeline?.steps?.length ? (
                 <BookingProgress timeline={timeline} />
               ) : (
@@ -454,6 +503,10 @@ export const BookingDetailPage = () => {
           {/* Conversation and actions — last, so nothing destructive sits near
               the top of a phone screen */}
           <div className="space-y-5 lg:col-start-1 lg:row-start-2">
+            {/* Only once staff have completed a stage, and never on a booking
+                that is no longer going ahead. */}
+            {!isCancelled && <InspectionAcknowledgement bookingId={booking.id} timeline={timeline} />}
+
             <Panel title="Messages" subtitle="Talk to us about this stay.">
               <MessageThread bookingId={booking.id} />
             </Panel>

@@ -34,12 +34,16 @@ export const BookingList = ({ bookings = [] }) => {
 
   return (
     <ul className="divide-y divide-line">
-      {bookings.map((booking) => (
+      {bookings.map((booking) => {
+        const isCancelled = ['cancelled', 'refunded'].includes(booking.status);
+
+        return (
         <li key={booking.id} className="flex flex-col gap-4 py-4 sm:flex-row sm:items-center">
+          {/* Desaturated so a dead booking never competes with a live one. */}
           <Image
             src={booking.propertyImage}
             alt={booking.propertyName}
-            wrapperClassName="h-20 w-28 shrink-0 rounded-lg"
+            wrapperClassName={cn('h-20 w-28 shrink-0 rounded-lg', isCancelled && 'opacity-50 grayscale')}
           />
 
           <div className="min-w-0 flex-1">
@@ -83,8 +87,14 @@ export const BookingList = ({ bookings = [] }) => {
             </Badge>
 
             {/* A held booking still needs paying — send the guest back to it
-                rather than leaving them to work out what to do next. */}
+                rather than leaving them to work out what to do next. A
+                cancelled one needs nothing, so it only offers a way back in. */}
             <div className="flex items-center gap-2">
+              {isCancelled && (
+                <Button size="sm" variant="secondary" to={paths.propertyDetail(booking.propertyId)}>
+                  Book again
+                </Button>
+              )}
               {booking.status === 'pending_payment' && (
                 <Button
                   size="sm"
@@ -102,7 +112,8 @@ export const BookingList = ({ bookings = [] }) => {
             <p className="font-mono text-[10.5px] text-ink-muted">{String(booking.id).slice(0, 8)}</p>
           </div>
         </li>
-      ))}
+        );
+      })}
     </ul>
   );
 };

@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { BadgeCheck, Bath, BedDouble, Expand, SlidersHorizontal, Users } from 'lucide-react';
+import { BadgeCheck, Bath, BedDouble, Expand, Loader2, LocateFixed, SlidersHorizontal, Users } from 'lucide-react';
 import { Image } from '@/components/ui/Image';
 import { Badge } from '@/components/ui/Badge';
 import { StarRating } from '@/components/ui/StarRating';
@@ -9,14 +9,26 @@ import { EmptyState } from '@/components/shared/EmptyState';
 import { SearchBar } from '@/components/shared/SearchBar';
 import { FavoriteButton } from './FavoriteButton';
 import { useProperties } from '../hooks/useProperties';
+import { PropertyMap, MapUnavailable } from './PropertyMap';
+import { env } from '@/lib/env';
+import { useGeolocation } from '@/hooks/useGeolocation';
 import { searchFilters } from '@/lib/mock/data';
 import { formatCurrency } from '@/utils/format';
 import { cn } from '@/utils/classNames';
 import { paths } from '@/routes/paths';
 
 /** Wide result row: photo on the left, details on the right. */
-const SearchResultCard = ({ property }) => (
-  <article className="relative flex gap-3 border-b border-line py-5 last:border-b-0 sm:gap-4">
+const SearchResultCard = ({ property, isActive, onHover }) => (
+  <article
+    id={`result-${property.id}`}
+    onMouseEnter={() => onHover?.(property.id)}
+    onMouseLeave={() => onHover?.(null)}
+    className={cn(
+      'relative flex gap-3 border-b border-line py-5 last:border-b-0 sm:gap-4',
+      // Only a tint: moving the card would make the list jump under the cursor.
+      isActive && '-mx-3 rounded-lg bg-brand-50/60 px-3',
+    )}
+  >
     <Link to={paths.propertyDetail(property.id)} className="shrink-0">
       <Image
         src={property.images?.[0]}
@@ -87,52 +99,14 @@ const SearchResultCard = ({ property }) => (
   </article>
 );
 
-/**
- * Decorative results map with price pins.
- * A real tile provider drops in here; the pin layout stays the same.
- */
-const ResultsMap = ({ properties }) => {
-  // Deterministic scatter so pins do not jump between renders.
-  const pins = useMemo(
-    () =>
-      properties.slice(0, 12).map((property, index) => ({
-        id: property.id,
-        label: formatCurrency(property.price, property.currency),
-        top: `${12 + ((index * 37) % 74)}%`,
-        left: `${10 + ((index * 53) % 76)}%`,
-      })),
-    [properties],
-  );
-
-  return (
-    <div className="relative size-full overflow-hidden rounded-card bg-[#c9dfea]">
-      <svg viewBox="0 0 400 600" className="size-full" aria-hidden="true" preserveAspectRatio="none">
-        <rect width="400" height="600" fill="#cfe3ec" />
-        <path d="M180 0 Q120 120 170 240 T140 460 Q160 540 120 600 L400 600 L400 0 Z" fill="#e9ece4" />
-        <path d="M180 0 Q120 120 170 240 T140 460 Q160 540 120 600" fill="none" stroke="#b9cfd9" strokeWidth="3" />
-        {[90, 210, 330, 450].map((y) => (
-          <line key={y} x1="200" y1={y} x2="400" y2={y - 40} stroke="#dcd9cd" strokeWidth="2" />
-        ))}
-      </svg>
-
-      {pins.map((pin) => (
-        <span
-          key={pin.id}
-          style={{ top: pin.top, left: pin.left }}
-          className="absolute -translate-x-1/2 rounded-full border border-line bg-white px-2 py-0.5 text-[10px] font-semibold text-ink shadow-sm"
-        >
-          {pin.label}
-        </span>
-      ))}
-    </div>
-  );
-};
-
 /** Search results route: filter chips, result list, and a live map panel. */
 export const SearchPage = () => {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [activeFilters, setActiveFilters] = useState([]);
-  const [searchOnMapMove, setSearchOnMapMove] = useState(true);
+  const [searchOnMapMove, setSearchOnMapMove] = useState(false);
+  /** Shared between the list and the map so hovering either highlights both. */
+  const [activeId, setActiveId] = useState(null);
+  const { locate, isLocating, status: locationStatus, error: locationError, placeName } = useGeolocation();
 
   const where = searchParams.get('where') ?? '';
   const guests = searchParams.get('guests') ?? '';
@@ -144,6 +118,25 @@ export const SearchPage = () => {
   });
 
   const results = data?.items ?? [];
+
+  /**
+   * Search near the guest.
+   *
+   * The place name drives the query because the list endpoint matches text,
+   * not coordinates — there is no radius filter yet. When Mapbox cannot name
+   * the spot we say so rather than searching for nothing.
+   */
+  const useMyLocation = async () => {
+    const result = await locate();
+    if (!result) return;
+
+    if (result.placeName) {
+      setSearchParams((params) => {
+        params.set('where', result.placeName);
+        return params;
+      });
+    }
+  };
 
   const toggleFilter = (filter) =>
     setActiveFilters((current) =>
@@ -176,6 +169,24 @@ export const SearchPage = () => {
           ))}
         </div>
 
+        {/*
+          Location is requested on press, never on load — an unprompted
+          permission dialog is the quickest route to a permanent denial.
+        */}
+        <button
+          type="button"
+          onClick={useMyLocation}
+          disabled={isLocating}
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-line bg-white px-3.5 py-2 text-[12px] text-ink-soft transition-colors hover:border-brand-300 disabled:opacity-60 sm:py-1.5"
+        >
+          {isLocating ? (
+            <Loader2 className="size-3 animate-spin" aria-hidden="true" />
+          ) : (
+            <LocateFixed className="size-3" aria-hidden="true" />
+          )}
+          <span className="hidden sm:inline">{isLocating ? 'Locating…' : 'Near me'}</span>
+        </button>
+
         <button
           type="button"
           className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-line bg-white px-3.5 py-2 text-[12px] text-ink-soft transition-colors hover:border-brand-300 sm:py-1.5"
@@ -184,6 +195,12 @@ export const SearchPage = () => {
           <span className="hidden sm:inline">Filters</span>
         </button>
       </div>
+
+      {(locationError || (locationStatus === 'ready' && !placeName)) && (
+        <p className="mt-2 text-[12px] text-ink-muted">
+          {locationError || 'We found you, but could not name the area. Try typing a place instead.'}
+        </p>
+      )}
 
       {/* `grid-cols-1` (= minmax(0,1fr)) is load-bearing: without an explicit
           template the implicit column is auto-sized, and the truncating result
@@ -212,7 +229,12 @@ export const SearchPage = () => {
           ) : results.length ? (
             <div className="mt-2">
               {results.map((property) => (
-                <SearchResultCard key={property.id} property={property} />
+                <SearchResultCard
+                  key={property.id}
+                  property={property}
+                  isActive={property.id === activeId}
+                  onHover={setActiveId}
+                />
               ))}
             </div>
           ) : (
@@ -226,17 +248,42 @@ export const SearchPage = () => {
         {/* Map */}
         <div className="relative hidden lg:block">
           <div className="sticky top-24 h-[calc(100vh-8rem)]">
-            <ResultsMap properties={results} />
-
-            <label className="absolute left-4 top-4 flex cursor-pointer items-center gap-2 rounded-lg bg-white px-3 py-2 text-[12px] shadow-card">
-              <input
-                type="checkbox"
-                checked={searchOnMapMove}
-                onChange={(event) => setSearchOnMapMove(event.target.checked)}
-                className="size-3.5 accent-brand-700"
+            {env.mapboxToken ? (
+              <PropertyMap
+                properties={results}
+                activeId={activeId}
+                onHover={setActiveId}
+                onSelect={(id) => {
+                  setActiveId(id);
+                  document.getElementById(`result-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }}
+                className="size-full"
               />
-              Search as I move the map
-            </label>
+            ) : (
+              <MapUnavailable className="size-full" />
+            )}
+
+            {/*
+              Deliberately off and disabled: the list endpoint has no bounding-box
+              filter, so re-querying on map movement could only narrow the page
+              already fetched — panning to a new area would show nothing even
+              where properties exist. Enable this the moment `?bbox=` lands.
+            */}
+            {env.mapboxToken && (
+              <label
+                className="absolute left-4 top-4 flex cursor-not-allowed items-center gap-2 rounded-lg bg-white px-3 py-2 text-[12px] text-ink-muted shadow-card"
+                title="Available once the API supports searching by map area"
+              >
+                <input
+                  type="checkbox"
+                  checked={searchOnMapMove}
+                  disabled
+                  onChange={(event) => setSearchOnMapMove(event.target.checked)}
+                  className="size-3.5 accent-brand-700"
+                />
+                Search as I move the map
+              </label>
+            )}
           </div>
         </div>
       </div>

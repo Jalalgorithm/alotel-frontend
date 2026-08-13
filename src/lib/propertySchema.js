@@ -157,7 +157,12 @@ export const toProperty = (raw, gallery) => {
     country: raw.country,
     address: raw.address,
     state: raw.state,
-    coordinates: raw.coordinates ?? null,
+    postalCode: raw.postal_code || '',
+    /** Set by the server's Mapbox check, not by whoever typed the address. */
+    isPostalCodeVerified: Boolean(raw.postal_code_verified),
+    postalCodeVerifiedAt: raw.postal_code_verified_at ?? null,
+    /** The API sends `{}` when a listing has never been geocoded. */
+    coordinates: raw.coordinates?.lat != null && raw.coordinates?.lng != null ? raw.coordinates : null,
     location: raw.location,
     destinationId: DESTINATION_BY_CITY[raw.city] ?? null,
 

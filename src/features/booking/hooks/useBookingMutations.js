@@ -189,6 +189,32 @@ export const useAcceptAgreement = () => {
   };
 };
 
+/**
+ * Acknowledge a completed check-in or check-out.
+ *
+ * The booking and its timeline are refetched afterwards rather than patched
+ * locally — acknowledgement state lives server-side, and guessing at it here
+ * would be the frontend inventing a fact it cannot see.
+ */
+export const useAcknowledgeInspection = (bookingId) => {
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: (stage) => bookingService.acknowledgeInspection(bookingId, stage),
+    onSuccess: ({ stage }) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.bookings.detail(bookingId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.bookings.timeline(bookingId) });
+      toast.success(
+        stage === 'checkin' ? 'Check-in confirmed' : 'Check-out confirmed',
+        'Thank you — this is now on your booking record.',
+      );
+    },
+    onError: (error) => toast.error('Could not confirm', getErrorMessage(error)),
+  });
+
+  return { acknowledge: mutation.mutate, isPending: mutation.isPending, stage: mutation.variables };
+};
+
 /** The stay's progress steps, owned by the server. */
 export const useBookingTimeline = (bookingId) =>
   useQuery({

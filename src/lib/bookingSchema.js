@@ -117,6 +117,36 @@ export const toBooking = (raw) => {
 
     createdAt: raw.created_at,
     updatedAt: raw.updated_at,
+
+    /**
+     * The cancellation, pulled out of the status history so the UI does not
+     * have to hunt for it. `triggered_by` is what distinguishes a guest
+     * cancelling from staff cancelling on their behalf — worth showing, since
+     * the two mean very different things to the person reading it.
+     */
+    cancellation: toCancellation(raw),
+  };
+};
+
+/** The event that moved a booking to cancelled or refunded, if any. */
+const toCancellation = (raw) => {
+  if (!['cancelled', 'refunded'].includes(raw.status)) return null;
+
+  const event = (raw.status_history ?? [])
+    .filter((entry) => ['cancelled', 'refunded'].includes(entry.to_status))
+    .pop();
+
+  if (!event) return { at: null, reason: '', by: null, wasByGuest: null };
+
+  const by = event.triggered_by ?? null;
+  return {
+    at: event.created_at ?? null,
+    reason: event.reason ?? '',
+    by,
+    /** Compared against the booking's own guest, which the payload includes. */
+    wasByGuest: by ? by === raw.guest_email || by === raw.guest_id : null,
+    fromStatus: event.from_status,
+    wasPaid: ['confirmed', 'active', 'completed'].includes(event.from_status),
   };
 };
 

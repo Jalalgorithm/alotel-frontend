@@ -132,6 +132,11 @@ const mockBookings = {
     return null;
   },
 
+  async acknowledgeInspection(bookingId, stage) {
+    await delay(300);
+    return { stage, acknowledged: true, acknowledgedAt: new Date().toISOString(), detail: '' };
+  },
+
   async contractStatus() {
     await delay(200);
     return null;
@@ -308,6 +313,23 @@ const realBookings = {
     };
   },
 
+  /**
+   * Confirm a staff-completed check-in or check-out.
+   *
+   * The guest's only role in the inspection cycle: staff perform and complete
+   * it, the guest acknowledges afterwards. The API rejects this until the
+   * stage is complete, so the caller must gate on the timeline.
+   */
+  async acknowledgeInspection(bookingId, stage) {
+    const { data } = await apiClient.post(`/inspections/${bookingId}/${stage}/acknowledge/`);
+    return {
+      stage,
+      acknowledged: Boolean(data?.guest_acknowledged ?? true),
+      acknowledgedAt: data?.guest_acknowledged_at ?? new Date().toISOString(),
+      detail: data?.detail ?? '',
+    };
+  },
+
   /** The support thread attached to a booking. */
   async messages(bookingId) {
     const { data } = await apiClient.get(`/messages/${bookingId}/`);
@@ -414,6 +436,7 @@ export const bookingService = {
   startIdentity: (bookingId) => backend.startIdentity(bookingId),
   getIdentityStatus: (guestId) => backend.identityStatus(guestId),
   getTaxRules: () => backend.taxRules(),
+  acknowledgeInspection: (bookingId, stage) => backend.acknowledgeInspection(bookingId, stage),
   getContractText: (bookingId) => backend.contractText(bookingId),
   getContractStatus: (contractId) => backend.contractStatus(contractId),
   acceptAgreement: (bookingId) => backend.acceptAgreement(bookingId),

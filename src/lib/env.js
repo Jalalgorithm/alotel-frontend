@@ -44,6 +44,16 @@ export const env = {
   stripePublishableKey: import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || '',
 
   /**
+   * Mapbox public token (pk.*), used for map tiles and geocoding only.
+   * Rendering is MapLibre GL, which carries no per-load licence fee — the
+   * token pays for tiles and the geocoding API, nothing else.
+   *
+   * Blank is a supported state: maps fall back to a static locator rather
+   * than rendering a broken canvas.
+   */
+  mapboxToken: import.meta.env.VITE_MAPBOX_PUBLIC_KEY || '',
+
+  /**
    * Termageddon policy keys, one per document, from their dashboard's embed
    * code (`data-policy-key`). Purely client-side — the policy HTML is fetched
    * from Termageddon at render time and never passes through our API.

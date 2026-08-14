@@ -48,6 +48,17 @@ import {
   useSendMessage,
 } from '../hooks/useBookingMutations';
 
+/** Common reasons, offered as one tap so the requirement is not a chore. */
+const CANCEL_REASONS = [
+  'My plans changed',
+  'My dates changed',
+  'Found somewhere else',
+  'Too expensive',
+  'Booked by mistake',
+];
+
+const MIN_CANCEL_REASON = 4;
+
 const STATUS_VARIANT = {
   pending_payment: 'gold',
   pending_approval: 'gold',
@@ -170,6 +181,14 @@ export const BookingDetailPage = () => {
 
   const [isCancelOpen, setIsCancelOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
+
+  /** Long enough to be a reason rather than a keystroke to get past the gate. */
+  const canSubmitCancel = cancelReason.trim().length >= MIN_CANCEL_REASON;
+
+  const closeCancel = () => {
+    setIsCancelOpen(false);
+    setCancelReason('');
+  };
   const [payError, setPayError] = useState('');
 
   if (isLoading) {
@@ -200,6 +219,11 @@ export const BookingDetailPage = () => {
   /** What actually came back, rather than what policy says might. */
   const refundedTotal = (receipt?.payments ?? [])
     .filter((payment) => ['refunded', 'refund', 'reversed'].includes(String(payment.status).toLowerCase()))
+    .reduce((total, payment) => total + (payment.amount || 0), 0);
+
+  /** What has actually been paid, so the warning names a real figure or none. */
+  const cancellationValue = (receipt?.payments ?? [])
+    .filter((payment) => ['succeeded', 'paid', 'captured'].includes(String(payment.status).toLowerCase()))
     .reduce((total, payment) => total + (payment.amount || 0), 0);
 
   const needsPayment = booking.status === 'pending_payment';
@@ -505,7 +529,7 @@ export const BookingDetailPage = () => {
           <div className="space-y-5 lg:col-start-1 lg:row-start-2">
             {/* Only once staff have completed a stage, and never on a booking
                 that is no longer going ahead. */}
-            {!isCancelled && <InspectionAcknowledgement bookingId={booking.id} timeline={timeline} />}
+            {!isCancelled && <InspectionAcknowledgement bookingId={booking.id} />}
 
             <Panel title="Messages" subtitle="Talk to us about this stay.">
               <MessageThread bookingId={booking.id} />
@@ -555,41 +579,96 @@ export const BookingDetailPage = () => {
         </div>
       </div>
 
+      {/*
+        The API accepts `reason` and records it on the status event, so it is
+        asked for here and required before the action unlocks. That is
+        deliberate friction: cancelling is irreversible and refunds follow a
+        policy, so a stray click should not be able to end a stay. Having to
+        say why is a better safeguard than a second "are you sure" nobody reads.
+      */}
       <Modal
         isOpen={isCancelOpen}
-        onClose={() => setIsCancelOpen(false)}
+        onClose={closeCancel}
         title="Cancel this booking?"
-        description="We will confirm by email and process any refund you are due."
-        size="sm"
-        footer={
-          <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setIsCancelOpen(false)}>
-              Keep booking
-            </Button>
-            <Button
-              variant="danger"
-              isLoading={isCancelling}
-              onClick={() => {
-                cancelBooking({ bookingId: booking.id, reason: cancelReason });
-                setIsCancelOpen(false);
-              }}
-            >
-              Cancel booking
-            </Button>
-          </div>
-        }
+        description="Tell us why, and we will confirm by email with any refund you are due."
+        size="md"
       >
-        <Alert variant="warn" title="This cannot be undone">
-          Any refund is calculated from the cancellation policy that applied when you booked.
+        {/*
+          The two things a guest actually needs to weigh — which dates they are
+          giving up and how much money is in play — are pulled out as facts.
+          Buried in the sentence, the amount was the easiest thing in the dialog
+          to skim past, which is the opposite of what a confirmation is for.
+        */}
+        <Alert
+          variant="warn"
+          title="This cannot be undone"
+          facts={[
+            { label: 'Dates released', value: `${formatDate(booking.checkIn)} → ${formatDate(booking.checkOut)}` },
+            ...(cancellationValue > 0
+              ? [{ label: 'Paid to date', value: formatCurrency(cancellationValue, booking.currency) }]
+              : []),
+          ]}
+        >
+          Your dates are released immediately and cannot be reinstated. Any refund is calculated from the cancellation
+          policy that applied when you booked.
         </Alert>
-        <Textarea
-          label="Reason (optional)"
-          rows={2}
-          className="mt-3"
-          value={cancelReason}
-          onChange={(event) => setCancelReason(event.target.value)}
-          placeholder="Helps us improve — and speeds up any refund review."
-        />
+
+        <fieldset className="mt-4">
+          <legend className="text-[12px] font-semibold text-ink">Why are you cancelling?</legend>
+
+          <div className="mt-2 flex flex-wrap gap-2">
+            {CANCEL_REASONS.map((preset) => (
+              <button
+                key={preset}
+                type="button"
+                onClick={() => setCancelReason(preset === cancelReason ? '' : preset)}
+                aria-pressed={preset === cancelReason}
+                className={cn(
+                  'rounded-full border px-3 py-1.5 text-[12px] transition-colors',
+                  preset === cancelReason
+                    ? 'border-brand-700 bg-brand-50 font-medium text-brand-700'
+                    : 'border-line bg-surface text-ink-soft hover:border-brand-300',
+                )}
+              >
+                {preset}
+              </button>
+            ))}
+          </div>
+
+          <Textarea
+            label="Reason"
+            rows={3}
+            className="mt-3"
+            value={cancelReason}
+            onChange={(event) => setCancelReason(event.target.value)}
+            placeholder="Pick one above, or tell us in your own words."
+            aria-describedby="cancel-reason-help"
+          />
+
+          <p id="cancel-reason-help" className="mt-1 text-[11.5px] text-ink-muted">
+            {canSubmitCancel
+              ? 'This is recorded on your booking and helps us review any refund.'
+              : `Please give a reason — at least ${MIN_CANCEL_REASON} characters — before cancelling.`}
+          </p>
+        </fieldset>
+
+        <div className="mt-5 flex flex-col-reverse gap-2 border-t border-line pt-4 sm:flex-row sm:justify-end">
+          <Button variant="secondary" onClick={closeCancel} disabled={isCancelling}>
+            Keep my booking
+          </Button>
+          <Button
+            variant="danger"
+            isLoading={isCancelling}
+            disabled={!canSubmitCancel || isCancelling}
+            // Closed on success only — a failure must leave the typed reason in
+            // place rather than making the guest write it again.
+            onClick={() =>
+              cancelBooking({ bookingId: booking.id, reason: cancelReason.trim() }, { onSuccess: closeCancel })
+            }
+          >
+            Cancel this booking
+          </Button>
+        </div>
       </Modal>
     </div>
   );

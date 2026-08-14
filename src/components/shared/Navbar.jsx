@@ -10,10 +10,12 @@ import { useUIStore } from '@/stores/uiStore';
 import { useFavoritesStore } from '@/stores/favoritesStore';
 import { getInitials } from '@/utils/format';
 import { useClickOutside } from '@/hooks/useClickOutside';
+import { NotificationBell } from '@/features/notifications';
 
 const NAV_LINKS = [
   { label: 'Home', to: paths.home, end: true },
   { label: 'Properties', to: paths.properties },
+  { label: 'Spaces', to: paths.spaces },
   { label: 'Destination', to: paths.destinations },
   { label: 'About Us', to: paths.about },
   { label: 'Support', to: paths.support },
@@ -126,13 +128,10 @@ export const Navbar = () => {
                   <span className="absolute right-1 top-1 size-1.5 rounded-full bg-brand-600" />
                 )}
               </Link>
-              <button
-                type="button"
-                aria-label="Notifications"
-                className="hidden rounded-full p-2 text-ink-soft transition-colors hover:bg-brand-50 hover:text-brand-700 sm:block"
-              >
-                <Bell className="size-4" />
-              </button>
+              {/* Was a decorative bell that did nothing; now the real inbox. */}
+              <div className="hidden sm:block">
+                <NotificationBell />
+              </div>
             </>
           )}
 

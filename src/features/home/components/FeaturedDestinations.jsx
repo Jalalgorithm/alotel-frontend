@@ -20,7 +20,9 @@ export const FeaturedDestinations = () => {
           : destinations.map((destination) => (
               <Link
                 key={destination.id}
-                to={`${paths.search}?where=${encodeURIComponent(destination.city)}`}
+                /* Sends people to the city guide rather than a bare search —
+                   the guide is what makes choosing a destination easier. */
+                to={paths.destinationDetail(destination.id)}
                 className="group relative overflow-hidden rounded-card"
               >
                 <Image

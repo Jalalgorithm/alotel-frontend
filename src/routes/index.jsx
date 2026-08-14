@@ -16,6 +16,22 @@ import { paths } from './paths';
  */
 const HomePage = lazy(() => import('@/features/home').then((m) => ({ default: m.HomePage })));
 const PropertiesPage = lazy(() => import('@/features/properties').then((m) => ({ default: m.PropertiesPage })));
+const AboutPage = lazy(() => import('@/features/company').then((m) => ({ default: m.AboutPage })));
+const SupportPage = lazy(() => import('@/features/company').then((m) => ({ default: m.SupportPage })));
+
+const NotificationsPage = lazy(() => import('@/features/notifications').then((m) => ({ default: m.NotificationsPage })));
+
+const DestinationsPage = lazy(() => import('@/features/destinations').then((m) => ({ default: m.DestinationsPage })));
+const DestinationDetailPage = lazy(() =>
+  import('@/features/destinations').then((m) => ({ default: m.DestinationDetailPage })),
+);
+
+const SpacesPage = lazy(() => import('@/features/spaces').then((m) => ({ default: m.SpacesPage })));
+const SpaceDetailPage = lazy(() => import('@/features/spaces').then((m) => ({ default: m.SpaceDetailPage })));
+const SpaceBookingConfirmationPage = lazy(() =>
+  import('@/features/spaces').then((m) => ({ default: m.SpaceBookingConfirmationPage })),
+);
+
 const PropertyDetailPage = lazy(() =>
   import('@/features/properties').then((m) => ({ default: m.PropertyDetailPage })),
 );
@@ -52,9 +68,13 @@ export const AppRoutes = () => (
         <Route path={paths.propertyDetail()} element={<PropertyDetailPage />} />
         <Route path={paths.search} element={<SearchPage />} />
 
-        <Route path={paths.destinations} element={<ComingSoonPage title="Destination guides" />} />
-        <Route path={paths.about} element={<ComingSoonPage title="About Alotel Spaces" />} />
-        <Route path={paths.support} element={<ComingSoonPage title="Support & policies" />} />
+        <Route path={paths.spaces} element={<SpacesPage />} />
+        <Route path={paths.spaceDetail()} element={<SpaceDetailPage />} />
+
+        <Route path={paths.destinations} element={<DestinationsPage />} />
+        <Route path={paths.destinationDetail()} element={<DestinationDetailPage />} />
+        <Route path={paths.about} element={<AboutPage />} />
+        <Route path={paths.support} element={<SupportPage />} />
 
         {/* Legal — each renders its Termageddon policy */}
         <Route path={paths.privacy} element={<PolicyPage policyId="privacy" />} />
@@ -66,6 +86,8 @@ export const AppRoutes = () => (
         <Route element={<ProtectedRoute />}>
           <Route path={paths.dashboard} element={<DashboardPage />} />
           <Route path={paths.bookingDetail()} element={<BookingDetailPage />} />
+          <Route path={paths.notifications} element={<NotificationsPage />} />
+          <Route path={paths.spaceBooking()} element={<SpaceBookingConfirmationPage />} />
         </Route>
 
         <Route path="*" element={<NotFoundPage />} />

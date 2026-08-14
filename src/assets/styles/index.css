@@ -37,10 +37,18 @@
   --color-ink-soft: #5c6169;
   --color-ink-muted: #8a9099;
 
-  /* Accents used by badges, ratings and status states */
+  /* Accents used by badges, ratings and status states.
+     Each accent carries a `-ink` step: the base hue is tuned to be seen as a
+     fill or a rail, and is far too light to set text on its own tint (gold on
+     a gold wash lands near 1.6:1). The `-ink` step is the same hue darkened
+     until it clears 4.5:1 on that accent's own 10–15% tint, so an icon or
+     label inside a chip stays readable rather than merely visible. */
   --color-gold: #f0a92c;
+  --color-gold-ink: #7a5205;
   --color-danger: #d14343;
+  --color-danger-ink: #9b2020;
   --color-info: #2f6fed;
+  --color-info-ink: #1b47a8;
   --color-footer: #2b2b2b;
 
   /* Typography — the wordmark is set in Georgia, matching the brand artwork. */
@@ -183,6 +191,23 @@
 
 @utility animate-fade-up {
   animation: fade-up 0.35s ease-out both;
+}
+
+/* Drains a toast's accent rail over its own lifetime, so an auto-dismissing
+   message shows how long is left instead of just disappearing. The duration is
+   set inline per toast; `linear` keeps it honest as a clock. */
+@keyframes toast-countdown {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+@utility animate-toast-countdown {
+  width: 100%;
+  animation: toast-countdown linear forwards;
 }
 
 @media (prefers-reduced-motion: reduce) {

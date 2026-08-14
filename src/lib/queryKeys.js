@@ -6,6 +6,23 @@
  * because React Query matches keys by prefix.
  */
 export const queryKeys = {
+  notifications: {
+    all: () => ['notifications'],
+    list: (userId) => ['notifications', 'list', userId],
+    preferences: (userId) => ['notifications', 'preferences', userId],
+  },
+
+  spaces: {
+    /* Prefix key — booking a space changes availability and the guest's own
+       list, so everything under `spaces` invalidates together. */
+    all: () => ['spaces'],
+    list: (filters) => ['spaces', 'list', filters ?? {}],
+    detail: (id) => ['spaces', 'detail', id],
+    availability: (id, date) => ['spaces', 'availability', id, date],
+    bookings: () => ['spaces', 'bookings'],
+    booking: (id) => ['spaces', 'booking', id],
+  },
+
   auth: {
     all: ['auth'],
     currentUser: () => ['auth', 'current-user'],
@@ -16,12 +33,15 @@ export const queryKeys = {
     detail: (id) => ['properties', 'detail', id],
     similar: (id) => ['properties', 'similar', id],
     calendar: (id) => ['properties', 'calendar', id],
+    videos: (id) => ['properties', 'videos', id],
     saved: () => ['properties', 'saved'],
     search: (params = {}) => ['properties', 'search', params],
   },
   destinations: {
     all: ['destinations'],
+    /* Shared by the homepage rail and the destinations index — same data. */
     list: () => ['destinations', 'list'],
+    detail: (slug) => ['destinations', 'detail', slug],
   },
   home: {
     testimonials: () => ['home', 'testimonials'],
@@ -37,6 +57,7 @@ export const queryKeys = {
     receipt: (id) => ['bookings', 'receipt', id],
     taxRules: () => ['bookings', 'tax-rules'],
     timeline: (id) => ['bookings', 'timeline', id],
+    inspection: (id, stage) => ['bookings', 'inspection', id, stage],
     contractText: (id) => ['bookings', 'contract-text', id],
     contractStatus: (id) => ['bookings', 'contract-status', id],
     messages: (id) => ['bookings', 'messages', id],

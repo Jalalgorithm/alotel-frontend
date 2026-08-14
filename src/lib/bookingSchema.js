@@ -198,6 +198,53 @@ export const toReceipt = (raw) => {
   };
 };
 
+/**
+ * `GET /inspections/{bookingId}/{stage}/acknowledge/`
+ *
+ * The same payload the acknowledge POST returns, so the guest sees exactly what
+ * they are being asked to confirm. `completed_at` and `guest_acknowledged`
+ * together decide what the panel offers.
+ */
+export const toInspection = (raw) => {
+  if (!raw) return null;
+
+  return {
+    id: raw.id,
+    bookingId: raw.booking,
+    stage: raw.stage,
+    notes: raw.notes ?? '',
+    /** Null while staff are still working — photos may exist before this is set. */
+    completedAt: raw.completed_at ?? null,
+    isComplete: Boolean(raw.completed_at),
+    isAcknowledged: Boolean(raw.guest_acknowledged),
+    acknowledgedAt: raw.guest_acknowledged_at ?? null,
+    media: (raw.photos ?? [])
+      .slice()
+      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+      .map((item) => ({
+        id: item.id,
+        url: item.file,
+        roomArea: item.room_area,
+        roomLabel: ROOM_AREA_LABELS[item.room_area] ?? item.room_area,
+        /** Staff can upload video as well as stills. */
+        isVideo: item.media_type === 'video',
+        caption: item.caption ?? '',
+        takenAt: item.taken_at_server ?? null,
+      })),
+  };
+};
+
+/** The API's room areas, in the order a walkthrough would take them. */
+export const ROOM_AREA_LABELS = {
+  entrance: 'Entrance',
+  living_room: 'Living room',
+  kitchen: 'Kitchen',
+  bedroom: 'Bedroom',
+  bathroom: 'Bathroom',
+  outdoor: 'Outdoor',
+  other: 'Other',
+};
+
 /** `GET /messages/{bookingId}/` */
 export const toMessage = (raw) => ({
   id: raw.id,

@@ -227,6 +227,22 @@ export const toProperty = (raw, gallery) => {
 };
 
 /**
+ * `GET /properties/{id}/videos/` — public, like the photo gallery.
+ * A walkthrough is heavy, so `thumbnail` matters: it lets the player show a
+ * poster and load nothing until someone presses play.
+ */
+export const toVideo = (raw) => ({
+  id: raw.id,
+  url: raw.property_video,
+  poster: raw.thumbnail || null,
+  roomType: raw.roomType || 'Walkthrough',
+  caption: raw.caption || '',
+  /** Seconds, when the server knows it. */
+  duration: raw.duration ?? null,
+  order: raw.order ?? 0,
+});
+
+/**
  * Normalise a DRF paginated envelope into the shape the grid expects.
  *
  * The callback is written out rather than passed point-free: `map` supplies the

@@ -3,7 +3,7 @@ import { env } from '@/lib/env';
 import { ApiError } from '@/utils/errors';
 import { clone, delay } from '@/lib/mock/utils';
 import { properties } from '@/lib/mock/data';
-import { filterByGuests, toListParams, toPage, toProperty } from '@/lib/propertySchema';
+import { filterByGuests, toListParams, toPage, toProperty, toVideo } from '@/lib/propertySchema';
 import { toAvailabilityCalendar } from '@/lib/bookingSchema';
 
 /**
@@ -101,6 +101,11 @@ const mockProperties = {
     await delay(250);
     return toAvailabilityCalendar([]);
   },
+
+  async videos() {
+    await delay(200);
+    return [];
+  },
 };
 
 /** Page size is fixed by the API's pagination class. */
@@ -152,6 +157,12 @@ const realProperties = {
       .slice(0, limit);
   },
 
+  /** Walkthrough videos for a listing. Public, same as the photo gallery. */
+  async videos(id) {
+    const { data } = await apiClient.get(`/properties/${id}/videos/`);
+    return (data?.results ?? data ?? []).map(toVideo).sort((a, b) => a.order - b.order);
+  },
+
   /**
    * The booking calendar's blocked nights.
    *
@@ -186,4 +197,5 @@ export const propertyService = {
   getSimilarProperties: (id, limit) => backend.similar(id, limit),
   getFeaturedProperties: (limit) => backend.featured(limit),
   getPropertyAvailability: (id) => backend.availability(id),
+  getPropertyVideos: (id) => backend.videos(id),
 };

@@ -190,6 +190,20 @@ export const useAcceptAgreement = () => {
 };
 
 /**
+ * What staff recorded for a stage. Null when they have not started.
+ *
+ * Short staleness: photos appear as staff work through the property, and a
+ * guest refreshing mid-inspection should see them.
+ */
+export const useInspection = (bookingId, stage) =>
+  useQuery({
+    queryKey: queryKeys.bookings.inspection(bookingId, stage),
+    queryFn: () => bookingService.getInspection(bookingId, stage),
+    enabled: Boolean(bookingId && stage),
+    staleTime: 1000 * 30,
+  });
+
+/**
  * Acknowledge a completed check-in or check-out.
  *
  * The booking and its timeline are refetched afterwards rather than patched
@@ -201,7 +215,11 @@ export const useAcknowledgeInspection = (bookingId) => {
 
   const mutation = useMutation({
     mutationFn: (stage) => bookingService.acknowledgeInspection(bookingId, stage),
-    onSuccess: ({ stage }) => {
+    onSuccess: (inspection) => {
+      const stage = inspection?.stage;
+      // The POST returns the updated inspection, so seed it rather than
+      // refetching only to learn what we already have.
+      if (stage) queryClient.setQueryData(queryKeys.bookings.inspection(bookingId, stage), inspection);
       queryClient.invalidateQueries({ queryKey: queryKeys.bookings.detail(bookingId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.bookings.timeline(bookingId) });
       toast.success(

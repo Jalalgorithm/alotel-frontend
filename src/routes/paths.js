@@ -3,8 +3,16 @@ export const paths = {
   home: '/',
   properties: '/properties',
   propertyDetail: (id = ':propertyId') => `/properties/${id}`,
+
+  /* Spaces get their own discovery surface rather than sharing the stays
+     routes — different search, different result shape, different intent. */
+  spaces: '/spaces',
+  spaceDetail: (id = ':spaceId') => `/spaces/${id}`,
+  spaceBooking: (id = ':bookingId') => `/spaces/bookings/${id}`,
   search: '/search',
+  notifications: '/notifications',
   destinations: '/destinations',
+  destinationDetail: (slug = ':slug') => `/destinations/${slug}`,
   about: '/about',
   support: '/support',
 

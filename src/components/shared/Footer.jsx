@@ -11,17 +11,17 @@ const FOOTER_COLUMNS = [
     links: [
       { label: 'Featured Listings', to: paths.properties },
       { label: 'Corporate Long-Stay', to: paths.properties },
-      { label: 'Property Concierge', to: paths.support },
+      { label: 'Property Concierge', to: `${paths.support}#stay` },
       { label: 'Destination Guides', to: paths.destinations },
     ],
   },
   {
     title: 'MANAGEMENT',
     links: [
-      { label: 'List Your Property', to: paths.support },
+      { label: 'List Your Property', to: `${paths.support}#hosting` },
       { label: 'Admin Portal', to: paths.login },
-      { label: 'KYC Documentation', to: paths.support },
-      { label: 'Compliance Hub', to: paths.about },
+      { label: 'KYC Documentation', to: `${paths.support}#identity` },
+      { label: 'Compliance Hub', to: `${paths.about}#compliance` },
     ],
   },
   {
@@ -37,10 +37,10 @@ const FOOTER_COLUMNS = [
     title: 'Company',
     links: [
       { label: 'About Us', to: paths.about },
-      { label: 'Our Story', to: paths.about },
-      { label: 'Careers', to: paths.about },
-      { label: 'Press', to: paths.about },
-      { label: 'Partners', to: paths.about },
+      { label: 'Our Story', to: `${paths.about}#story` },
+      { label: 'Careers', to: `${paths.about}#careers` },
+      { label: 'Press', to: `${paths.about}#press` },
+      { label: 'Partners', to: `${paths.about}#partners` },
     ],
   },
 ];

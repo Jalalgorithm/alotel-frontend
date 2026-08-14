@@ -37,6 +37,18 @@ export const env = {
   useMockBookings: toBool(import.meta.env.VITE_USE_MOCK_BOOKINGS, useMock),
 
   /**
+   * Spaces — meeting rooms, event halls, anything booked by the hour or the
+   * day rather than the night.
+   *
+   * Defaults to `true` regardless of `VITE_USE_MOCK`, because there is no
+   * Spaces backend yet: no models, no migrations, no endpoints on any branch.
+   * The screens are built against the contract in the Spaces briefing so they
+   * can move to the real API by flipping this flag once it ships. Setting it
+   * to `false` today will simply 404.
+   */
+  useMockSpaces: toBool(import.meta.env.VITE_USE_MOCK_SPACES, true),
+
+  /**
    * Stripe publishable key, used only for `stripe.verifyIdentity()` — the
    * identity modal runs client-side. Payments never touch this: they redirect
    * to a Checkout URL the server creates.

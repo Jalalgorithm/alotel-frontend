@@ -4,7 +4,8 @@ import { Image } from '@/components/ui/Image';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/shared/EmptyState';
-import { formatDate } from '@/utils/format';
+import { formatCurrency, formatDate } from '@/utils/format';
+import { useBooking, useBookingReceipt } from '@/features/booking';
 import { cn } from '@/utils/classNames';
 import { paths } from '@/routes/paths';
 import { BOOKING_STATUS_LABELS } from '@/lib/bookingSchema';
@@ -19,6 +20,43 @@ const STATUS_VARIANT = {
   completed: 'neutral',
   cancelled: 'neutral',
   refunded: 'soft',
+};
+
+/**
+ * Why a booking ended, and whether money came back.
+ *
+ * Only rendered for cancelled rows, so the extra request is bounded by how many
+ * of those a guest has — normally none or one.
+ */
+const CancelledLine = ({ bookingId, status }) => {
+  const { data: booking } = useBooking(bookingId);
+  const { data: receipt } = useBookingReceipt(bookingId);
+
+  const cancellation = booking?.cancellation;
+  const refunded = (receipt?.payments ?? [])
+    .filter((payment) => ['refunded', 'refund', 'reversed'].includes(String(payment.status).toLowerCase()))
+    .reduce((total, payment) => total + (payment.amount || 0), 0);
+
+  const paid = (receipt?.payments ?? []).some((payment) =>
+    ['succeeded', 'paid', 'captured'].includes(String(payment.status).toLowerCase()),
+  );
+
+  const money =
+    refunded > 0
+      ? `${formatCurrency(refunded, receipt?.currency)} refunded`
+      : paid
+        ? 'refund under review'
+        : 'no payment taken';
+
+  return (
+    <p className="mt-1 text-[11.5px] text-ink-muted">
+      <span className="font-medium text-ink-soft">
+        {status === 'refunded' ? 'Refunded' : 'Cancelled'}
+        {cancellation?.at ? ` ${formatDate(cancellation.at)}` : ''}
+      </span>
+      {cancellation?.reason ? ` · ${cancellation.reason}` : ''} · {money}
+    </p>
+  );
 };
 
 export const BookingList = ({ bookings = [] }) => {
@@ -53,10 +91,15 @@ export const BookingList = ({ bookings = [] }) => {
               </Link>
             </h3>
 
-            <p className="mt-1 text-[12px] text-ink-muted">
+            <p className={cn('mt-1 text-[12px] text-ink-muted', isCancelled && 'line-through')}>
               {formatDate(booking.checkIn)} → {formatDate(booking.checkOut)} · {booking.nights}{' '}
               {booking.nights === 1 ? 'night' : 'nights'}
             </p>
+
+            {/* A cancelled row should say what happened, not just wear a tag.
+                The summary payload carries no cancellation detail, so this is
+                fetched per row — cheap, because there are few of them. */}
+            {isCancelled && <CancelledLine bookingId={booking.id} status={booking.status} />}
 
             <p className="mt-0.5 inline-flex items-center gap-1 text-[11px] text-ink-muted">
               <MapPin className="size-3 text-brand-600" aria-hidden="true" />

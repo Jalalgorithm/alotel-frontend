@@ -1,5 +1,6 @@
 import { apiClient } from '@/lib/apiClient';
 import { toContractStatus, toContractText } from '@/lib/agreementSchema';
+import { toInspection } from '@/lib/bookingSchema';
 import { env } from '@/lib/env';
 import { authStorage, jsonStorage } from '@/lib/storage';
 import { ApiError } from '@/utils/errors';
@@ -132,9 +133,14 @@ const mockBookings = {
     return null;
   },
 
+  async inspection() {
+    await delay(200);
+    return null;
+  },
+
   async acknowledgeInspection(bookingId, stage) {
     await delay(300);
-    return { stage, acknowledged: true, acknowledgedAt: new Date().toISOString(), detail: '' };
+    return { stage, isAcknowledged: true, acknowledgedAt: new Date().toISOString(), media: [] };
   },
 
   async contractStatus() {
@@ -314,6 +320,23 @@ const realBookings = {
   },
 
   /**
+   * What staff recorded for a stage — photos, video, and whether the guest has
+   * already confirmed. Read-only: viewing never flips acknowledgement.
+   *
+   * 404 means staff have not started, which is a normal state rather than an
+   * error, so it resolves to null.
+   */
+  async inspection(bookingId, stage) {
+    try {
+      const { data } = await apiClient.get(`/inspections/${bookingId}/${stage}/acknowledge/`);
+      return toInspection(data);
+    } catch (error) {
+      if (error?.status === 404 || error?.response?.status === 404) return null;
+      throw error;
+    }
+  },
+
+  /**
    * Confirm a staff-completed check-in or check-out.
    *
    * The guest's only role in the inspection cycle: staff perform and complete
@@ -322,12 +345,7 @@ const realBookings = {
    */
   async acknowledgeInspection(bookingId, stage) {
     const { data } = await apiClient.post(`/inspections/${bookingId}/${stage}/acknowledge/`);
-    return {
-      stage,
-      acknowledged: Boolean(data?.guest_acknowledged ?? true),
-      acknowledgedAt: data?.guest_acknowledged_at ?? new Date().toISOString(),
-      detail: data?.detail ?? '',
-    };
+    return toInspection(data);
   },
 
   /** The support thread attached to a booking. */
@@ -436,6 +454,7 @@ export const bookingService = {
   startIdentity: (bookingId) => backend.startIdentity(bookingId),
   getIdentityStatus: (guestId) => backend.identityStatus(guestId),
   getTaxRules: () => backend.taxRules(),
+  getInspection: (bookingId, stage) => backend.inspection(bookingId, stage),
   acknowledgeInspection: (bookingId, stage) => backend.acknowledgeInspection(bookingId, stage),
   getContractText: (bookingId) => backend.contractText(bookingId),
   getContractStatus: (contractId) => backend.contractStatus(contractId),

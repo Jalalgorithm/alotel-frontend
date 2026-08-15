@@ -1,3 +1,5 @@
+import { env } from '@/lib/env';
+
 /**
  * Spaces vocabulary — meeting rooms, boardrooms, event halls.
  *
@@ -65,6 +67,29 @@ export const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'
 
 /** JS `getDay()` (0 = Sunday) -> API `day_of_week` (0 = Monday). */
 export const jsDayToApiDay = (jsDay) => (jsDay + 6) % 7;
+
+/**
+ * Resolve a media path against the API origin.
+ *
+ * `SpaceImageSerializer` returns a *relative* path (`/media/space_media/x.png`)
+ * because it is not given `request` in its serializer context, while the
+ * property serializers return absolute URLs. A relative path resolves against
+ * the *frontend* origin, so the image 404s on localhost and would point at the
+ * Vercel domain in production.
+ *
+ * Absolute URLs pass through untouched, so this keeps working the day the
+ * backend starts sending them.
+ */
+export const mediaUrl = (path) => {
+  if (!path) return '';
+  if (/^https?:\/\//i.test(path) || path.startsWith('data:')) return path;
+
+  try {
+    return new URL(path, new URL(env.apiUrl, window.location.origin).origin).toString();
+  } catch {
+    return path;
+  }
+};
 
 const toNumber = (value) => {
   const parsed = Number(value);
@@ -196,11 +221,14 @@ export const toSpace = (raw) => ({
   name: raw.title ?? '',
   description: raw.description ?? '',
   /*
-   * The API has no image model for Spaces yet, so this is always empty and the
-   * UI falls back to a branded placeholder rather than a broken frame. When
-   * `GET /spaces/admin/{id}/images/` lands, this is the only line that changes.
+   * Ordered by the host's own `order` column, not upload time. The serializer
+   * field is `image`, not `file` — the property gallery uses `file`, and the
+   * two are easy to confuse when moving between them.
    */
-  images: raw.images ?? [],
+  images: (raw.images ?? [])
+    .slice()
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+    .map((row) => ({ id: row.id, url: mediaUrl(row.image), caption: row.caption ?? '', order: row.order ?? 0 })),
   city: raw.city ?? '',
   state: raw.state ?? '',
   country: raw.country ?? '',
@@ -217,6 +245,12 @@ export const toSpace = (raw) => ({
   maxSlots: raw.max_slots ?? null,
   bookingMode: raw.booking_mode ?? 'instant',
   approvalExpiryHours: raw.approval_expiry_hours ?? 24,
+  /*
+   * Host-authored free text ("Boardroom", "Event Hall"). Distinct from
+   * `SpaceAddon.category`, which is the add-on catalogue's grouping — search's
+   * `?category=` parameter matches this field, not that one.
+   */
+  category: raw.space_type ?? '',
   status: raw.status ?? 'draft',
   publishedAt: raw.published_at ?? null,
   /** Computed server-side across every layout — no need to derive it here. */
@@ -228,11 +262,7 @@ export const toSpace = (raw) => ({
     open: (row.open_time ?? '').slice(0, 5),
     close: (row.close_time ?? '').slice(0, 5),
   })),
-  /*
-   * Writable via the admin endpoint but absent from `SpaceSerializer.fields`,
-   * so a listing can never report its own closures. Kept as an empty array so
-   * consumers do not need to special-case it once the field is serialised.
-   */
+  /** One-off closures the host has declared. */
   blackoutDates: (raw.blackout_dates ?? []).map((row) => ({ date: row.date, reason: row.reason ?? '' })),
 });
 

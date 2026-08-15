@@ -3,7 +3,7 @@ import { Clock, Maximize2, Users } from 'lucide-react';
 import { SpaceImage } from './SpaceImage';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { SpacesEmpty } from './SpacesEmpty';
-import { formatCurrency } from '@/utils/format';
+import { formatCurrency, formatDate } from '@/utils/format';
 import { DAY_NAMES, formatTime } from '@/lib/spaceSchema';
 import { useSpace } from '../hooks/useSpaces';
 import { SpaceBookingPanel } from './SpaceBookingPanel';
@@ -81,10 +81,24 @@ export const SpaceDetailPage = () => {
         )}
       </div>
 
+      {/* The rest of the gallery, when the host has uploaded more than two. */}
+      {space.images.length > 2 && (
+        <div className="scrollbar-none mt-2 flex gap-2 overflow-x-auto">
+          {space.images.slice(2).map((image, index) => (
+            <SpaceImage
+              key={image.id}
+              space={space}
+              index={index + 2}
+              wrapperClassName="h-24 w-36 shrink-0 overflow-hidden rounded-lg"
+            />
+          ))}
+        </div>
+      )}
+
       <div className="mt-6 grid gap-8 lg:grid-cols-[1fr_360px]">
         <div className="min-w-0">
           <p className="text-[12px] font-semibold uppercase tracking-[0.07em] text-brand-700">
-            {space.bookingMode === 'instant' ? 'Instant book' : 'Request to book'}
+            {space.category || (space.bookingMode === 'instant' ? 'Instant book' : 'Request to book')}
           </p>
           <h1 className="mt-1 font-display text-[24px] font-semibold text-ink sm:text-[28px]">{space.name}</h1>
 
@@ -172,14 +186,15 @@ export const SpaceDetailPage = () => {
               ))}
             </ul>
 
-            {/*
-              One-off closures are not returned by the detail endpoint, only
-              reflected in availability. Rather than imply the list below is
-              complete, the calendar is named as the authority.
-            */}
-            <p className="mt-2.5 rounded-lg bg-line-soft p-2.5 text-[11.5px] text-ink-soft">
-              Individual dates may be closed. Pick a date in the panel to see exactly what is free.
-            </p>
+            {space.blackoutDates.length > 0 && (
+              <p className="mt-2.5 rounded-lg bg-line-soft p-2.5 text-[11.5px] text-ink-soft">
+                <span className="font-semibold text-ink">Closed on</span>{' '}
+                {space.blackoutDates
+                  .map((row) => `${formatDate(row.date)}${row.reason ? ` (${row.reason})` : ''}`)
+                  .join(', ')}
+                .
+              </p>
+            )}
           </section>
         </div>
 

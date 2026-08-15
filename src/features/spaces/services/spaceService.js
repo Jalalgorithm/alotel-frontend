@@ -259,6 +259,8 @@ const realSpaces = {
     if (filters.city) params.city = filters.city;
     if (filters.minCapacity) params.min_capacity = filters.minCapacity;
     if (filters.date) params.date = filters.date;
+    /* Matches `Space.space_type`, not the add-on catalogue's categories. */
+    if (filters.category && filters.category !== 'All') params.category = filters.category;
 
     /* Plain array, not a paginated envelope. */
     const { data } = await apiClient.get('/spaces/search/', { params });
@@ -372,12 +374,15 @@ const realSpaces = {
   },
 
   /**
-   * There is no guest-scoped list endpoint — `GET /spaces/bookings/` is Level
-   * 1/2 only and 403s for a guest. Returning empty keeps callers working; a
-   * `GET /spaces/bookings/mine/` would fill this in.
+   * The guest's own space bookings.
+   *
+   * Note the separate path: `GET /spaces/bookings/` is the host approval queue
+   * and is Level 1/2 only, so a guest calling it gets a 403 rather than an
+   * empty list. `/mine/` is the guest-scoped equivalent.
    */
   async myBookings() {
-    return [];
+    const { data } = await apiClient.get('/spaces/bookings/mine/');
+    return (data?.results ?? data ?? []).map(toSpaceBooking);
   },
 
   /** A guest *can* read their own booking by id, just not list them. */
@@ -387,11 +392,15 @@ const realSpaces = {
   },
 
   /**
-   * No guest-facing cancel exists — only host approve/decline. Surfaced as a
-   * clear error rather than a silent no-op so the button can be hidden.
+   * Cancel your own booking.
+   *
+   * The server refuses once the booking has started, and on any status that is
+   * not cancellable. The UI hides the button in those cases rather than relying
+   * on the error — but the guard stays server-side, which is where it belongs.
    */
-  async cancel() {
-    throw new ApiError('Cancelling a space booking is not available yet. Please contact the host.', 501);
+  async cancel(id) {
+    const { data } = await apiClient.patch(`/spaces/bookings/${id}/cancel/`);
+    return toSpaceBooking(data);
   },
 };
 

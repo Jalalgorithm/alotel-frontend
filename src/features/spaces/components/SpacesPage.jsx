@@ -3,6 +3,7 @@ import { Search, SlidersHorizontal, Users } from 'lucide-react';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { cn } from '@/utils/classNames';
 import { SpacesEmpty } from './SpacesEmpty';
 import { useSpaces } from '../hooks/useSpaces';
 import { SpaceCard } from './SpaceCard';
@@ -20,10 +21,18 @@ import { SpaceCard } from './SpaceCard';
 export const SpacesPage = () => {
   const [draft, setDraft] = useState({ query: '', minCapacity: '' });
   const [filters, setFilters] = useState({});
+  const [category, setCategory] = useState('All');
 
-  const { data, isLoading } = useSpaces(filters);
+  const { data, isLoading } = useSpaces({ ...filters, category });
 
   const spaces = data?.items ?? [];
+
+  /*
+   * Built from what hosts have actually typed into `space_type` rather than a
+   * fixed enum, so a new kind of space appears the day someone lists one.
+   * Blank types are skipped — an unnamed chip filters to nothing useful.
+   */
+  const categories = ['All', ...new Set(spaces.map((space) => space.category).filter(Boolean))];
 
   const submit = (event) => {
     event.preventDefault();
@@ -67,6 +76,27 @@ export const SpacesPage = () => {
         </Button>
       </form>
 
+      {categories.length > 1 && (
+        <div className="scrollbar-none mt-4 flex gap-2 overflow-x-auto pb-1">
+          {categories.map((entry) => (
+            <button
+              key={entry}
+              type="button"
+              onClick={() => setCategory(entry)}
+              aria-pressed={entry === category}
+              className={cn(
+                'shrink-0 rounded-full border px-3.5 py-1.5 text-[12.5px] transition-colors',
+                entry === category
+                  ? 'border-brand-700 bg-brand-700 font-medium text-white'
+                  : 'border-line bg-surface text-ink-soft hover:border-brand-300',
+              )}
+            >
+              {entry}
+            </button>
+          ))}
+        </div>
+      )}
+
       {isLoading ? (
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 3 }).map((_, index) => (
@@ -94,6 +124,7 @@ export const SpacesPage = () => {
               onClick={() => {
                 setDraft({ query: '', minCapacity: '' });
                 setFilters({});
+                setCategory('All');
               }}
             >
               Clear filters

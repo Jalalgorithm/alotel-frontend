@@ -5,16 +5,12 @@ import { cn } from '@/utils/classNames';
 /**
  * A space's photograph, or a stand-in for it.
  *
- * Spaces have no image model on the API yet, so every listing currently has an
- * empty gallery. Rather than render a broken frame or collapse the layout, this
- * draws a branded plate carrying the space's own name — the page keeps its
- * shape and hierarchy, and nothing looks like a loading failure.
- *
- * The moment `GET /spaces/{id}/images/` exists, `space.images` fills and this
- * falls through to the real photo with no other change.
+ * Images are live now, but a host who has not uploaded any is a normal state
+ * rather than an error — that listing gets a branded plate carrying its own
+ * name, so the page keeps its shape instead of showing a broken frame.
  */
 export const SpaceImage = ({ space, index = 0, className, wrapperClassName }) => {
-  const url = space.images?.[index];
+  const url = space.images?.[index]?.url;
 
   if (url) return <Image src={url} alt={space.name} wrapperClassName={wrapperClassName} className={className} />;
 

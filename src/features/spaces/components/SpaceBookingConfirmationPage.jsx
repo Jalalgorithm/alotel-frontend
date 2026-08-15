@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { SpacesEmpty } from './SpacesEmpty';
 import { formatCurrency, formatDate } from '@/utils/format';
 import { formatTime, SPACE_BOOKING_STATUSES } from '@/lib/spaceSchema';
-import { useSpaceBooking } from '../hooks/useSpaces';
+import { useCancelSpaceBooking, useSpaceBooking } from '../hooks/useSpaces';
 
 /**
  * The outcome of a space booking.
@@ -79,6 +79,7 @@ const RequestTracker = ({ status }) => {
 export const SpaceBookingConfirmationPage = () => {
   const { bookingId } = useParams();
   const { data: booking, isLoading } = useSpaceBooking(bookingId);
+  const { cancel, isPending: cancelling } = useCancelSpaceBooking();
   const countdown = useCountdown(booking?.expiresAt);
 
   if (isLoading) {
@@ -102,6 +103,11 @@ export const SpaceBookingConfirmationPage = () => {
   const isPending = booking.status === 'pending_host_approval';
   const isConfirmed = ['confirmed', 'completed'].includes(booking.status);
   const isDead = ['declined', 'expired', 'cancelled'].includes(booking.status);
+
+  /* The same conditions the API enforces on PATCH /cancel/. */
+  const CANCELLABLE = ['pending_payment', 'pending_host_approval', 'confirmed'];
+  const hasStarted = new Date(booking.startDateTime) <= new Date();
+  const canCancel = CANCELLABLE.includes(booking.status) && !hasStarted;
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6">
@@ -259,14 +265,21 @@ export const SpaceBookingConfirmationPage = () => {
         </Button>
 
         {/*
-          There is no guest-facing cancel endpoint for spaces — only host
-          approve/decline. Offering a button that always errors is worse than
-          telling the guest who can actually do it.
+          Mirrors the server's two guards rather than letting the guest press a
+          button that will 400: it refuses any status outside its cancellable
+          set, and refuses once the booking has started. Hiding the control is
+          kinder than explaining the rejection afterwards.
         */}
-        {!isDead && booking.status !== 'completed' && (
-          <Button to="/spaces" variant="ghost">
-            Contact the host to change this
+        {canCancel && (
+          <Button variant="ghost" isLoading={cancelling} disabled={cancelling} onClick={() => cancel(booking.id)}>
+            {isPending ? 'Withdraw request' : 'Cancel booking'}
           </Button>
+        )}
+
+        {!canCancel && hasStarted && !isDead && (
+          <span className="self-center text-[12px] text-ink-muted">
+            This booking has started — message the host to change it.
+          </span>
         )}
       </div>
     </div>

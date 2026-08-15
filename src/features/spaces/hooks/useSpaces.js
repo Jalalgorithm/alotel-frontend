@@ -83,6 +83,7 @@ export const useBookSpace = (spaceId) => {
       const payment = await spaceService.initiateSpacePayment({
         bookingId: booking.id,
         currency: booking.currency,
+        provider: selection.provider,
       });
 
       return { booking, paymentUrl: payment?.paymentUrl ?? null };

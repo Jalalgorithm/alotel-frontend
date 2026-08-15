@@ -358,10 +358,13 @@ const realSpaces = {
   },
 
   /** Exchanges a booking for a Stripe Checkout URL to redirect to. */
-  async initiatePayment({ bookingId, currency }) {
+  async initiatePayment({ bookingId, currency, provider }) {
     const { data } = await apiClient.post('/spaces/bookings/payments/initiate/', {
       space_booking_id: bookingId,
       currency,
+      /* Only sent when the guest picked one; otherwise the server applies its
+         own currency→provider rule. */
+      ...(provider ? { provider } : {}),
     });
 
     return {

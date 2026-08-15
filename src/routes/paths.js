@@ -8,6 +8,7 @@ export const paths = {
      routes — different search, different result shape, different intent. */
   spaces: '/spaces',
   spaceDetail: (id = ':spaceId') => `/spaces/${id}`,
+  spaceCheckout: (id = ':spaceId') => `/spaces/${id}/book`,
   spaceBooking: (id = ':bookingId') => `/spaces/bookings/${id}`,
   search: '/search',
   notifications: '/notifications',

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate } from 'react-router-dom';
@@ -8,13 +8,64 @@ import { Input, Textarea } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { StepShell, StepActions } from './StepShell';
 import { PriceSummary } from './PriceSummary';
+import { DateRangeCalendar } from '@/features/properties';
 import { guestDetailsSchema } from '@/utils/validators';
-import { formatCurrency } from '@/utils/format';
+import { formatCurrency, formatDate } from '@/utils/format';
 import { paths } from '@/routes/paths';
-import { addDays, todayIso } from '@/lib/bookingSchema';
 
 /** Compact summary of the residence being booked, shown beside the form. */
-const PropertyPreview = ({ property, pricing, currency, nights, register, errors, checkIn }) => (
+/** Range summary that expands into the shared availability calendar. */
+const DateRangeField = ({ checkIn, checkOut, blockedDates, minStay, maxStay, onChange }) => {
+  const [isOpen, setOpen] = useState(false);
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        aria-expanded={isOpen}
+        className="flex w-full items-center gap-2 rounded-md bg-black/[0.04] px-2 py-2 text-left transition-colors hover:bg-black/[0.06]"
+      >
+        <CalendarDays className="size-3.5 shrink-0 text-ink-muted" aria-hidden="true" />
+        <span className="min-w-0 flex-1">
+          <span className="block text-[10px] font-semibold uppercase tracking-wide text-ink-muted">Dates</span>
+          <span className="block truncate text-[11.5px] text-ink">
+            {checkIn && checkOut ? `${formatDate(checkIn)} → ${formatDate(checkOut)}` : 'Choose your nights'}
+          </span>
+        </span>
+        <span className="text-[11px] font-medium text-brand-700">{isOpen ? 'Done' : 'Change'}</span>
+      </button>
+
+      {isOpen && (
+        <div className="mt-2 rounded-lg border border-line bg-surface p-2">
+          <DateRangeCalendar
+            blockedDates={blockedDates}
+            checkIn={checkIn}
+            checkOut={checkOut}
+            minStay={minStay}
+            maxStay={maxStay}
+            monthsToShow={1}
+            onChange={onChange}
+            onDone={() => setOpen(false)}
+          />
+        </div>
+      )}
+    </div>
+  );
+};
+
+const PropertyPreview = ({
+  property,
+  pricing,
+  currency,
+  nights,
+  register,
+  errors,
+  checkIn,
+  checkOut,
+  blockedDates,
+  onDatesChange,
+}) => (
   // A container query, not a media query: this card is full width on phones but
   // only ~320px inside the two-column layout, so its own width is what decides
   // whether the fields fit side by side.
@@ -55,34 +106,25 @@ const PropertyPreview = ({ property, pricing, currency, nights, register, errors
         </span>
       </p>
 
-      {/* Dates live with the property, exactly as in the design. Native date
-          inputs need ~120px, so they stack until there is room. */}
-      <div className="mt-4 grid grid-cols-1 gap-2.5 border-t border-line pt-3 @[24rem]:grid-cols-2">
-        <label className="text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
-          Check-in
-          <span className="mt-1 flex items-center gap-1 rounded-md bg-black/[0.04] px-2 py-2">
-            <CalendarDays className="size-3 shrink-0 text-ink-muted" aria-hidden="true" />
-            <input
-              type="date"
-              min={todayIso()}
-              className="h-6 w-full min-w-0 bg-transparent text-[11px] text-ink focus:outline-none"
-              {...register('checkIn')}
-            />
-          </span>
-        </label>
+      {/*
+        Dates open the same calendar the property page uses, so the nights this
+        property has already sold are greyed out here too. Native date inputs
+        cannot express that — they were showing every night as bookable, and a
+        guest only discovered the clash after picking.
+      */}
+      <div className="mt-4 border-t border-line pt-3">
+        <DateRangeField
+          checkIn={checkIn}
+          checkOut={checkOut}
+          blockedDates={blockedDates}
+          minStay={property.minStay ?? 1}
+          maxStay={property.maxStay}
+          onChange={onDatesChange}
+        />
 
-        <label className="text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
-          Check-out
-          <span className="mt-1 flex items-center gap-1 rounded-md bg-black/[0.04] px-2 py-2">
-            <CalendarDays className="size-3 shrink-0 text-ink-muted" aria-hidden="true" />
-            <input
-              type="date"
-              min={checkIn ? addDays(checkIn, 1) : todayIso()}
-              className="h-6 w-full min-w-0 bg-transparent text-[11px] text-ink focus:outline-none"
-              {...register('checkOut')}
-            />
-          </span>
-        </label>
+        {/* The resolver still validates these; the calendar writes into them. */}
+        <input type="hidden" {...register('checkIn')} />
+        <input type="hidden" {...register('checkOut')} />
       </div>
 
       {/* Adults, children and infants are separate because the API counts them
@@ -134,6 +176,7 @@ export const GuestDetailsStep = ({
   nights,
   availability,
   isCheckingAvailability,
+  blockedDates,
   draft,
   onSubmit,
 }) => {
@@ -144,6 +187,7 @@ export const GuestDetailsStep = ({
     handleSubmit,
     watch,
     reset,
+    setValue,
     formState: { errors, isDirty },
   } = useForm({
     resolver: zodResolver(guestDetailsSchema),
@@ -181,6 +225,7 @@ export const GuestDetailsStep = ({
   }, [draft, isDirty, reset]);
 
   const checkIn = watch('checkIn');
+  const checkOut = watch('checkOut');
 
   const submit = (values) => {
     const { checkIn: from, checkOut, adults, children, infants, specialRequests, ...guest } = values;
@@ -206,6 +251,14 @@ export const GuestDetailsStep = ({
             register={register}
             errors={errors}
             checkIn={checkIn}
+            checkOut={checkOut}
+            blockedDates={blockedDates}
+            onDatesChange={({ checkIn: from, checkOut: to }) => {
+              /* `shouldValidate` so an invalid range surfaces immediately
+                 rather than on submit. */
+              setValue('checkIn', from, { shouldValidate: true, shouldDirty: true });
+              setValue('checkOut', to ?? '', { shouldValidate: true, shouldDirty: true });
+            }}
           />
 
           <div className="space-y-4">

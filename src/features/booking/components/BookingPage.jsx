@@ -39,6 +39,7 @@ export const BookingPage = () => {
     stepIndex,
     draft,
     availability,
+    blockedDates,
     isCheckingAvailability,
     pricing,
     currency,
@@ -163,6 +164,7 @@ export const BookingPage = () => {
         nights={nights}
         availability={availability}
         isCheckingAvailability={isCheckingAvailability}
+        blockedDates={blockedDates}
         draft={draft}
         onSubmit={handleDetails}
       />

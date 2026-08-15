@@ -28,6 +28,7 @@ const DestinationDetailPage = lazy(() =>
 
 const SpacesPage = lazy(() => import('@/features/spaces').then((m) => ({ default: m.SpacesPage })));
 const SpaceDetailPage = lazy(() => import('@/features/spaces').then((m) => ({ default: m.SpaceDetailPage })));
+const SpaceCheckoutPage = lazy(() => import('@/features/spaces').then((m) => ({ default: m.SpaceCheckoutPage })));
 const SpaceBookingConfirmationPage = lazy(() =>
   import('@/features/spaces').then((m) => ({ default: m.SpaceBookingConfirmationPage })),
 );
@@ -87,6 +88,7 @@ export const AppRoutes = () => (
           <Route path={paths.dashboard} element={<DashboardPage />} />
           <Route path={paths.bookingDetail()} element={<BookingDetailPage />} />
           <Route path={paths.notifications} element={<NotificationsPage />} />
+          <Route path={paths.spaceCheckout()} element={<SpaceCheckoutPage />} />
           <Route path={paths.spaceBooking()} element={<SpaceBookingConfirmationPage />} />
         </Route>
 

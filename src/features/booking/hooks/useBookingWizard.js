@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useBookingStore, BOOKING_STEPS } from '@/stores/bookingStore';
-import { useProperty } from '@/features/properties';
+import { useProperty, usePropertyAvailability } from '@/features/properties';
 import { useAuth } from '@/features/auth';
 import { useAvailability } from './useBookingMutations';
 
@@ -17,6 +17,17 @@ import { useAvailability } from './useBookingMutations';
 export const useBookingWizard = (propertyId) => {
   const { user } = useAuth();
   const { data: property, isLoading } = useProperty(propertyId);
+
+  /**
+   * The property's blocked nights.
+   *
+   * The sidebar on the detail page already greys these out, but the wizard was
+   * only running the *range* check for dates the guest had already picked — so
+   * its own picker showed every night as free and the guest only discovered a
+   * clash after choosing. Same source as the sidebar, so the two cannot
+   * disagree about what is available.
+   */
+  const { data: calendar } = usePropertyAvailability(propertyId);
 
   const stepIndex = useBookingStore((state) => state.stepIndex);
   const draft = useBookingStore((state) => state.draft);
@@ -67,6 +78,7 @@ export const useBookingWizard = (propertyId) => {
     draft,
 
     availability,
+    blockedDates: calendar?.blockedDates ?? new Set(),
     isCheckingAvailability: availabilityQuery.isFetching,
     /** The quote for the selected stay, or null until the API has answered. */
     pricing: availability?.pricing ?? null,

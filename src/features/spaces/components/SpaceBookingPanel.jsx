@@ -8,7 +8,7 @@ import { cn } from '@/utils/classNames';
 import { formatCurrency } from '@/utils/format';
 import { selectIsAuthenticated, useAuthStore } from '@/stores/authStore';
 import { capacityCheck, rateSuffix } from '@/lib/spaceSchema';
-import { useBookSpace, useSpaceAvailability, useSpaceQuote } from '../hooks/useSpaces';
+import { useSpaceAvailability, useSpaceQuote } from '../hooks/useSpaces';
 import { TimeWindowPicker } from './TimeWindowPicker';
 
 /**
@@ -85,7 +85,6 @@ export const SpaceBookingPanel = ({ space }) => {
 
   const { data: availability, isLoading: loadingAvailability } = useSpaceAvailability(space.id, date);
   const { getQuote, result: quote, isPending: quoting } = useSpaceQuote(space.id);
-  const { book, isPending: booking } = useBookSpace(space.id);
 
   const layout = space.layouts.find((entry) => entry.id === layoutId);
   const capacity = capacityCheck(layout, guestCount);
@@ -116,19 +115,16 @@ export const SpaceBookingPanel = ({ space }) => {
       return;
     }
 
-    book(
-      { date, startTime: window.startTime, endTime: window.endTime, layoutId, guestCount, addons },
-      {
-        /*
-         * Only navigate when we are staying on this site. When the hook has a
-         * Stripe URL it hands the browser over itself, and routing underneath
-         * that would race the redirect.
-         */
-        onSuccess: ({ booking: created, paymentUrl }) => {
-          if (!paymentUrl) navigate(`/spaces/bookings/${created.id}`);
-        },
+    /*
+     * Hand off to checkout rather than booking here. The panel configures a
+     * space; committing money is a separate decision, and it deserves the same
+     * review-then-choose-a-provider flow a property booking gets.
+     */
+    navigate(`/spaces/${space.id}/book`, {
+      state: {
+        selection: { date, startTime: window.startTime, endTime: window.endTime, layoutId, guestCount, addons },
       },
-    );
+    });
   };
 
   const isRequest = space.bookingMode === 'request';
@@ -300,12 +296,8 @@ export const SpaceBookingPanel = ({ space }) => {
           </dl>
         )}
 
-        <Button fullWidth size="lg" disabled={!canBook || booking} isLoading={booking || quoting} onClick={submit}>
-          {!isAuthenticated
-            ? 'Sign in to book'
-            : isRequest
-              ? 'Request this space'
-              : 'Book this space'}
+        <Button fullWidth size="lg" disabled={!canBook} isLoading={quoting} onClick={submit}>
+          {!isAuthenticated ? 'Sign in to book' : 'Review and book'}
         </Button>
 
         {!hasWindow && (

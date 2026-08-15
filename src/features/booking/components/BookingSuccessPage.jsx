@@ -51,13 +51,37 @@ export const BookingSuccessPage = () => {
   const { data: property } = useProperty(booking?.propertyId);
 
   const isSettled = status?.status && status.status !== 'pending_payment';
-  const isConfirmed = ['confirmed', 'active', 'completed', 'pending_kyc', 'pending_approval'].includes(status?.status);
+
+  /*
+   * Payment succeeding and the stay being confirmed are not the same event.
+   * A booking that needs identity verification or host approval lands on
+   * `pending_kyc` / `pending_approval` — the money is taken, the stay is not
+   * yet secured. Calling all of those "Booking confirmed" contradicted the
+   * dashboard, which correctly showed them as pending, and left guests unsure
+   * which screen to believe.
+   */
+  const isPaid = ['confirmed', 'active', 'completed', 'pending_kyc', 'pending_approval'].includes(status?.status);
+  const isConfirmed = ['confirmed', 'active', 'completed'].includes(status?.status);
+  const needsVerification = status?.status === 'pending_kyc';
+  const needsApproval = status?.status === 'pending_approval';
+
+  /*
+   * The poll has no natural end if a provider webhook never lands, so after
+   * half a minute the copy stops promising "a few seconds" and says what is
+   * actually happening. Polling continues underneath.
+   */
+  const [isSlow, setSlow] = useState(false);
+  useEffect(() => {
+    if (isSettled) return undefined;
+    const timer = setTimeout(() => setSlow(true), 30_000);
+    return () => clearTimeout(timer);
+  }, [isSettled]);
 
   // Once the booking is confirmed the draft has served its purpose; clearing it
   // stops a stale bookingId from hijacking the guest's next booking.
   useEffect(() => {
-    if (isConfirmed) reset();
-  }, [isConfirmed, reset]);
+    if (isPaid) reset();
+  }, [isPaid, reset]);
 
   if (!bookingId) {
     return (
@@ -88,7 +112,9 @@ export const BookingSuccessPage = () => {
                 Confirming your payment
               </h1>
               <p className="mt-2 text-[13px] text-ink-muted">
-                This usually takes a few seconds. You can safely leave this page — we will email you either way.
+                {isSlow
+                  ? 'This is taking longer than usual. Your payment is safe — we are still waiting on confirmation from the payment provider, and will email you as soon as it lands.'
+                  : 'This usually takes a few seconds. You can safely leave this page — we will email you either way.'}
               </p>
             </>
           )}
@@ -104,6 +130,30 @@ export const BookingSuccessPage = () => {
               <p className="mt-2 text-[13px] text-ink-muted">
                 Your payment went through. A confirmation email is on its way.
               </p>
+            </>
+          )}
+
+          {isSettled && isPaid && !isConfirmed && (
+            <>
+              <span className="mx-auto flex size-14 items-center justify-center rounded-full bg-brand-50">
+                <CheckCircle2 className="size-7 text-brand-600" aria-hidden="true" />
+              </span>
+              <h1 className="mt-4 font-display text-[24px] font-bold text-brand-700 sm:text-[28px]">
+                Payment received
+              </h1>
+              <p className="mt-2 text-[13px] text-ink-muted">
+                {needsVerification
+                  ? 'One step left — we need to verify your identity before this stay is confirmed. It takes a couple of minutes.'
+                  : needsApproval
+                    ? 'Your booking is with our team for final approval. We will confirm by email, usually within a day.'
+                    : 'Your booking is being finalised. We will confirm by email shortly.'}
+              </p>
+
+              {needsVerification && (
+                <Button to={paths.dashboard} className="mt-5">
+                  Complete verification
+                </Button>
+              )}
             </>
           )}
 

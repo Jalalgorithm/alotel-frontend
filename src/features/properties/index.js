@@ -11,6 +11,7 @@ export { PropertyGrid } from './components/PropertyGrid';
 
 // Hooks
 export { useProperties, useFeaturedProperties } from './hooks/useProperties';
+export { DateRangeCalendar } from './components/DateRangeCalendar';
 export { useProperty, usePropertyAvailability, usePropertyVideos, useSimilarProperties } from './hooks/useProperty';
 
 // Service — the booking feature needs to resolve a property by id.

@@ -490,6 +490,26 @@ export const BookingDetailPage = () => {
                     : 'Not yet agreed'}
               </p>
 
+              {/*
+                The report behind this: a guest could not tell whether their
+                paperwork was done before arriving. The status above was
+                already here, but nothing connected it to check-in — so an
+                outstanding signature read as a detail rather than something
+                standing between them and the keys.
+              */}
+              {agreement.needsSignature && !agreement.isAccepted && (
+                <p className="mt-2.5 rounded-md bg-gold/10 p-2.5 text-[11.5px] leading-4 text-ink-soft">
+                  This stay needs a signed agreement before check-in can be completed. We will email the signing link —
+                  message us below if it has not arrived.
+                </p>
+              )}
+
+              {agreement.needsSignature && agreement.isAccepted && (
+                <p className="mt-2.5 text-[11.5px] text-brand-700">
+                  Signed and on file — nothing outstanding before check-in.
+                </p>
+              )}
+
               {/* Only offered when the guest can actually act on it. */}
               {!agreement.isAccepted && !agreement.needsSignature && needsPayment && (
                 <Button size="sm" fullWidth className="mt-3" to={paths.booking(booking.propertyId)}>

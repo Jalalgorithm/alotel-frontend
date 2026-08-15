@@ -24,13 +24,28 @@ export const useNotifications = () => {
     refetchOnWindowFocus: true,
   });
 
+  /*
+   * The count comes from its own endpoint rather than being derived from the
+   * list, so the navbar badge no longer depends on having fetched every
+   * notification. Polled on the same cadence as the list; falls back to the
+   * derived count if the request fails, which keeps the badge honest rather
+   * than blank.
+   */
+  const countQuery = useQuery({
+    queryKey: queryKeys.notifications.unreadCount(userId),
+    queryFn: notificationService.unreadCount,
+    enabled: Boolean(userId),
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
+  });
+
   const items = query.data ?? [];
+  const derived = items.filter((notification) => !notification.isRead).length;
 
   return {
     ...query,
     notifications: items,
-    /* Derived, because there is no unread-count endpoint to ask. */
-    unreadCount: items.filter((notification) => !notification.isRead).length,
+    unreadCount: countQuery.data ?? derived,
   };
 };
 
@@ -39,6 +54,7 @@ export const useNotificationMutations = () => {
   const user = useAuthStore(selectUser);
   const userId = user?.id ?? null;
 
+  /* Prefix invalidation covers the list, the count and preferences together. */
   const invalidate = () => queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all() });
 
   const markRead = useMutation({
@@ -68,7 +84,8 @@ export const useNotificationMutations = () => {
   });
 
   const markAllRead = useMutation({
-    mutationFn: notificationService.markAllRead,
+    /* Takes no argument now — the endpoint marks everything for the caller. */
+    mutationFn: () => notificationService.markAllRead(),
     onSuccess: (result) => {
       invalidate();
       if (result.count) toast.success('All caught up', `${result.count} marked as read.`);
@@ -78,7 +95,7 @@ export const useNotificationMutations = () => {
 
   return {
     markRead: markRead.mutate,
-    markAllRead: markAllRead.mutate,
+    markAllRead: () => markAllRead.mutate(),
     isMarkingAll: markAllRead.isPending,
   };
 };

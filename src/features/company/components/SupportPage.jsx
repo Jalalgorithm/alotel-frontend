@@ -21,6 +21,7 @@ import { cn } from '@/utils/classNames';
 import { selectIsAuthenticated, useAuthStore } from '@/stores/authStore';
 import { CONTACT_CHANNELS } from '@/lib/companyContent';
 import { findTopic, searchFaqs, TOPICS } from '@/lib/supportContent';
+import { DataRightsPanel } from './DataRightsPanel';
 import { paths } from '@/routes/paths';
 
 /**
@@ -260,6 +261,10 @@ export const SupportPage = () => {
               </p>
             </div>
           )}
+
+          {/* Sits with the policies: same place a reader goes when they are
+              thinking about what we hold and what they agreed to. */}
+          <DataRightsPanel className="mt-10" />
 
           {/* ------------------------------------------------------ policies */}
           <section className="mt-10 rounded-card border border-line bg-surface p-5">

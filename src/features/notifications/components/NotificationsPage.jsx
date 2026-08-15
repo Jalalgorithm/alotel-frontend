@@ -118,7 +118,6 @@ export const NotificationsPage = () => {
     return groups;
   }, [visible]);
 
-  const unreadIds = notifications.filter((n) => !n.isRead).map((n) => n.id);
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
@@ -136,7 +135,7 @@ export const NotificationsPage = () => {
             size="sm"
             isLoading={isMarkingAll}
             disabled={isMarkingAll}
-            onClick={() => markAllRead(unreadIds)}
+            onClick={() => markAllRead()}
             leftIcon={<Check className="size-3.5" aria-hidden="true" />}
           >
             Mark all read

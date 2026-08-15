@@ -5,8 +5,9 @@ import { EmptyState } from '@/components/shared/EmptyState';
 import { Button } from '@/components/ui/Button';
 import { Accordion } from '@/components/ui/Accordion';
 import { PropertyGallery } from './PropertyGallery';
-import { PropertyAmenities } from './PropertyAmenities';
+import { PropertyAccessibility, PropertyAmenities } from './PropertyAmenities';
 import { LocationLandmarks } from './LocationLandmarks';
+import { PropertyReviews } from './PropertyReviews';
 import { BookingSidebar } from './BookingSidebar';
 import { SimilarProperties } from './SimilarProperties';
 import { useProperty } from '../hooks/useProperty';
@@ -124,6 +125,8 @@ export const PropertyDetailPage = () => {
           )}
 
           <PropertyAmenities amenities={property.amenities} />
+
+          <PropertyAccessibility features={property.accessFeatures} />
         </div>
 
         {/* Booking panel — second on mobile, right-hand column on desktop */}
@@ -134,6 +137,8 @@ export const PropertyDetailPage = () => {
         {/* Supporting detail — read after the decision, not before it */}
         <div className="space-y-6 lg:col-start-1 lg:row-start-2">
           <LocationLandmarks property={property} />
+
+          <PropertyReviews property={property} />
 
           <section>
             <h2 className="font-display text-lg font-semibold text-brand-700">Frequently Asked Questions</h2>

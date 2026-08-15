@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
   AlertTriangle,
@@ -29,10 +29,14 @@ import { formatCurrency, formatDate } from '@/utils/format';
 import { getErrorMessage } from '@/utils/errors';
 import { paths } from '@/routes/paths';
 import { toAgreementState } from '@/lib/agreementSchema';
+import { bookingService } from '../services/bookingService';
 import { useAuth } from '@/features/auth';
 import { useProperty } from '@/features/properties';
 import { BookingProgress } from './BookingProgress';
 import { InspectionAcknowledgement } from './InspectionAcknowledgement';
+import { FullKycPanel } from './FullKycPanel';
+import { CheckoutReportPanel } from './CheckoutReportPanel';
+import { StayExtras } from './StayExtras';
 import { PriceSummary } from './PriceSummary';
 import { printReceipt } from '../receiptDocument';
 import {
@@ -101,6 +105,18 @@ const MessageThread = ({ bookingId }) => {
   const { data: messages, isLoading } = useBookingMessages(bookingId);
   const { sendMessage, isPending } = useSendMessage(bookingId);
   const [draft, setDraft] = useState('');
+
+  /*
+   * Reading the thread marks it read — the endpoint existed but was never
+   * called, so unread counts could only ever climb. Fired once per booking
+   * per mount, and failure is ignored: not clearing a badge is a far smaller
+   * problem than an error toast over a conversation.
+   */
+  const hasMessages = Boolean(messages?.length);
+  useEffect(() => {
+    if (!bookingId || !hasMessages) return;
+    bookingService.markMessagesRead(bookingId).catch(() => null);
+  }, [bookingId, hasMessages]);
 
   const submit = (event) => {
     event.preventDefault();
@@ -531,17 +547,28 @@ export const BookingDetailPage = () => {
               )}
             </Panel>
 
-            <Panel title="Verification" subtitle="Identity checks for this stay.">
-              <p className="flex items-center gap-2 text-[12.5px] text-ink-soft">
-                <ShieldCheck className="size-4 shrink-0 text-brand-600" aria-hidden="true" />
-                {isIdVerified ? 'Identity verified' : 'Not verified yet'}
-              </p>
-              {!isIdVerified && (
-                <Button size="sm" fullWidth className="mt-3" to={paths.booking(booking.propertyId)}>
-                  Verify identity
-                </Button>
-              )}
-            </Panel>
+            {/*
+              Two different obligations, so one or the other — never both. A
+              short stay needs the Stripe Identity pass below. A stay past the
+              contract threshold needs AML, address and credit checks as well,
+              and showing "Not verified yet" beside a panel tracking three
+              separate checks would read as a contradiction.
+            */}
+            {booking.contractRequired ? (
+              <FullKycPanel booking={booking} />
+            ) : (
+              <Panel title="Verification" subtitle="Identity checks for this stay.">
+                <p className="flex items-center gap-2 text-[12.5px] text-ink-soft">
+                  <ShieldCheck className="size-4 shrink-0 text-brand-600" aria-hidden="true" />
+                  {isIdVerified ? 'Identity verified' : 'Not verified yet'}
+                </p>
+                {!isIdVerified && (
+                  <Button size="sm" fullWidth className="mt-3" to={paths.booking(booking.propertyId)}>
+                    Verify identity
+                  </Button>
+                )}
+              </Panel>
+            )}
           </div>
 
           {/* Conversation and actions — last, so nothing destructive sits near
@@ -549,30 +576,17 @@ export const BookingDetailPage = () => {
           <div className="space-y-5 lg:col-start-1 lg:row-start-2">
             {/* Only once staff have completed a stage, and never on a booking
                 that is no longer going ahead. */}
+            {!isCancelled && <CheckoutReportPanel booking={booking} />}
+
             {!isCancelled && <InspectionAcknowledgement bookingId={booking.id} />}
 
             <Panel title="Messages" subtitle="Talk to us about this stay.">
               <MessageThread bookingId={booking.id} />
             </Panel>
 
-            {/* Post-stay actions the API does not model yet. */}
             {isStayable && (
-              <Panel title="After your stay" subtitle="Coming soon — these are not connected yet.">
-                <div className="flex flex-wrap gap-2">
-                  <Button size="sm" variant="secondary" disabled leftIcon={<Star className="size-3.5" aria-hidden="true" />}>
-                    Leave a review
-                  </Button>
-                  <Button size="sm" variant="secondary" disabled leftIcon={<BookOpen className="size-3.5" aria-hidden="true" />}>
-                    Open guidebook
-                  </Button>
-                  <Button size="sm" variant="secondary" disabled leftIcon={<CalendarDays className="size-3.5" aria-hidden="true" />}>
-                    Request an extension
-                  </Button>
-                </div>
-                <p className="mt-2 text-[11px] text-ink-muted">
-                  The API has endpoints for all three, but their request shapes are not verified yet — see the notes
-                  handed over with this work.
-                </p>
+              <Panel title="Your stay" subtitle="The guidebook, extending, and leaving a review.">
+                <StayExtras booking={booking} />
               </Panel>
             )}
 

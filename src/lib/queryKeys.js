@@ -9,6 +9,7 @@ export const queryKeys = {
   notifications: {
     all: () => ['notifications'],
     list: (userId) => ['notifications', 'list', userId],
+    unreadCount: (userId) => ['notifications', 'unread-count', userId],
     preferences: (userId) => ['notifications', 'preferences', userId],
   },
 
@@ -60,6 +61,10 @@ export const queryKeys = {
     inspection: (id, stage) => ['bookings', 'inspection', id, stage],
     contractText: (id) => ['bookings', 'contract-text', id],
     contractStatus: (id) => ['bookings', 'contract-status', id],
+    fullKyc: (guestId) => ['bookings', 'full-kyc', guestId],
+    checkoutReport: (id) => ['bookings', 'checkout-report', id],
+    guidebook: (propertyId) => ['bookings', 'guidebook', propertyId],
+    reviews: (listingId) => ['bookings', 'reviews', listingId],
     messages: (id) => ['bookings', 'messages', id],
     notifications: (guestId) => ['bookings', 'notifications', guestId],
   },

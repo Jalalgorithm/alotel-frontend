@@ -103,23 +103,32 @@ export const notificationService = {
       .sort((a, b) => new Date(b.sentAt) - new Date(a.sentAt));
   },
 
+  /**
+   * The unread badge.
+   *
+   * Its own endpoint now, so the navbar no longer fetches the whole inbox on
+   * every page just to count the dots. Scoped by the token — unlike the list,
+   * there is no user id in the path.
+   */
+  async unreadCount() {
+    const { data } = await apiClient.get('/notifications/unread-count/');
+    return data?.unread_count ?? 0;
+  },
+
   async markRead(id) {
     const { data } = await apiClient.patch(`/notifications/${id}/read/`);
     return toNotification(data);
   },
 
   /**
-   * Mark everything read.
+   * Mark everything read in one call.
    *
-   * There is no bulk endpoint, so this fans out over the unread rows. Kept
-   * sequential to avoid opening a socket per notification on a busy inbox; a
-   * `POST /notifications/read-all/` would make it one request.
+   * This used to fan out one PATCH per unread row — 47 requests on a busy
+   * account. The bulk endpoint replaced that entirely.
    */
-  async markAllRead(ids = []) {
-    for (const id of ids) {
-      await notificationService.markRead(id).catch(() => null);
-    }
-    return { success: true, count: ids.length };
+  async markAllRead() {
+    const { data } = await apiClient.post('/notifications/read-all/');
+    return { success: true, count: data?.marked_read ?? 0 };
   },
 
   async getPreferences(userId) {

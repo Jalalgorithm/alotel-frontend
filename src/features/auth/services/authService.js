@@ -275,7 +275,46 @@ const backend = env.useMockAuth ? mockAuth : realAuth;
 /* Public API — the only surface hooks should touch                            */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * GDPR — consent records and data-subject requests.
+ *
+ * Real API only. A mocked consent record is worse than none: the point of the
+ * record is that it exists on a server someone can be held to.
+ *
+ * Consent accepts anonymous callers (`AllowAny`), because it is captured at
+ * signup and cookie-banner time, before there is a session to attach it to.
+ */
+const compliance = {
+  /** consent_type: terms | privacy | cookies | gdpr_processing | marketing */
+  async recordConsent({ consentType, granted = true }) {
+    const { data } = await apiClient.post('/compliance/consent/', {
+      consent_type: consentType,
+      granted,
+    });
+    return data;
+  },
+
+  /**
+   * Ask for an export, deletion or correction of your data.
+   *
+   * Submit-only by design here: `GET /compliance/data-requests/` is restricted
+   * to staff roles, so a guest cannot read back their own requests. Until that
+   * changes, the UI confirms the submission rather than promising a history it
+   * cannot show.
+   */
+  async requestData({ requestType, notes }) {
+    const { data } = await apiClient.post('/compliance/data-requests/', {
+      request_type: requestType,
+      notes: notes ?? '',
+    });
+    return { id: data.id ?? data.request_id, requestType: data.request_type, status: data.status ?? 'pending' };
+  },
+};
+
 export const authService = {
+  recordConsent: (payload) => compliance.recordConsent(payload),
+  requestData: (payload) => compliance.requestData(payload),
+
   /**
    * Authenticate. Persists the session on success.
    *

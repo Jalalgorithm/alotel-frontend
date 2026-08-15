@@ -433,6 +433,212 @@ const realBookings = {
     const { data } = await apiClient.get(`/kyc/short/status/${guestId}/`);
     return data;
   },
+
+  /* ------------------------------------------------------- full KYC ----- */
+
+  /**
+   * Start the full check for a long stay.
+   *
+   * Distinct from `kyc/short/`, which is the Stripe Identity selfie-and-ID
+   * pass a short stay needs. Past the contract threshold a stay is closer to a
+   * tenancy, so it also needs anti-money-laundering, address and credit
+   * checks — run by Onfido or Credas rather than Stripe.
+   */
+  async startFullKyc({ bookingId, provider }) {
+    const { data } = await apiClient.post('/kyc/full/start/', {
+      booking_id: bookingId,
+      ...(provider ? { provider } : {}),
+    });
+
+    return {
+      kycCheckId: data.kyc_check_id,
+      bookingId: data.booking_id,
+      guestId: data.guest_id,
+      provider: data.provider,
+      providerApplicantId: data.provider_applicant_id ?? '',
+      status: data.status,
+      detail: data.detail ?? '',
+    };
+  },
+
+  /**
+   * Where the full check has got to.
+   *
+   * The three sub-checks move independently, so they are surfaced separately
+   * rather than collapsed into the overall status — when credit passes and AML
+   * stalls, "in review" alone tells the guest nothing about what to do.
+   */
+  async fullKycStatus(guestId) {
+    const { data } = await apiClient.get(`/kyc/full/status/${guestId}/`);
+
+    return {
+      kycCheckId: data.kyc_check_id ?? data.id ?? null,
+      bookingId: data.booking_id ?? data.booking ?? null,
+      provider: data.provider ?? '',
+      status: data.status ?? 'not_started',
+      amlStatus: data.aml_status ?? 'pending',
+      addressStatus: data.address_status ?? 'pending',
+      creditStatus: data.credit_status ?? 'pending',
+      rightToRentRequired: Boolean(data.right_to_rent_required),
+      rightToRentStatus: data.right_to_rent_status ?? null,
+      referencingFeePaid: Boolean(data.reference_fee_paid ?? data.referencing_fee_paid),
+      reviewedAt: data.reviewed_at ?? null,
+      detail: data.detail ?? '',
+    };
+  },
+
+  /* ------------------------------------------------- stay extras ------- */
+
+  /**
+   * The property guidebook.
+   *
+   * Carries wifi credentials and the door code, so the server restricts it to
+   * guests with an active or completed booking. A 404 simply means the host
+   * has not written one.
+   */
+  async guidebook(propertyId) {
+    try {
+      const { data } = await apiClient.get(`/stay/guidebook/${propertyId}/`);
+      return {
+        wifiName: data.wifi_name ?? '',
+        wifiPassword: data.wifi_password ?? '',
+        smartLockCode: data.smart_lock_code ?? '',
+        checkinInstructions: data.checkin_instructions ?? '',
+        checkoutInstructions: data.checkout_instructions ?? '',
+        houseRules: data.house_rules ?? '',
+        localTips: data.local_tips ?? '',
+        emergencyContacts: data.emergency_contacts ?? [],
+      };
+    } catch (error) {
+      if (error?.status === 404) return null;
+      throw error;
+    }
+  },
+
+  /**
+   * Ask to stay longer.
+   *
+   * The server refuses anything that is not active/confirmed/pending approval,
+   * and anything that is not at least one night later than the current
+   * check-out. The UI mirrors both so the request is not offered when it
+   * cannot succeed.
+   */
+  async requestExtension({ bookingId, requestedCheckOut, guestNote }) {
+    const { data } = await apiClient.post('/stay/request-extension/', {
+      booking_id: bookingId,
+      requested_check_out: requestedCheckOut,
+      guest_note: guestNote ?? '',
+    });
+    return data;
+  },
+
+  /**
+   * The post-checkout report.
+   *
+   * Guest-scoped (`report/mine/`) — the staff route carries an internal email
+   * delivery log this one strips. 404 is the normal state until staff have
+   * generated it, so it resolves to null rather than throwing.
+   *
+   * Damage items arrive nested here, which matters: the standalone damage
+   * endpoint is staff-only, so this report is the *only* way a guest can see
+   * what was charged against their deposit and why.
+   */
+  async checkoutReport(bookingId) {
+    try {
+      const { data } = await apiClient.get(`/inspections/${bookingId}/report/mine/`);
+
+      return {
+        id: data.id,
+        pdfUrl: data.pdf_url || null,
+        sentToGuest: Boolean(data.sent_to_guest),
+        sentAt: data.sent_at ?? null,
+        generatedAt: data.generated_at ?? null,
+        deductionTotal: Number(data.deposit_deduction_total) || 0,
+        damageItems: (data.damage_items ?? []).map((item) => ({
+          id: item.id,
+          roomArea: item.room_area,
+          description: item.description ?? '',
+          severity: item.severity,
+          photo: item.photo || null,
+          estimatedCost: Number(item.estimated_cost) || 0,
+          /* What was actually agreed, which may differ from the estimate. */
+          approvedCost: item.approved_cost == null ? null : Number(item.approved_cost),
+          currency: item.currency ?? 'GBP',
+          deductFromDeposit: Boolean(item.deduct_from_deposit),
+          loggedAt: item.logged_at ?? null,
+        })),
+      };
+    } catch (error) {
+      if (error?.status === 404) return null;
+      throw error;
+    }
+  },
+
+  /** Marks the thread read. Note the verb: the endpoint is PUT, not POST. */
+  async markMessagesRead(bookingId) {
+    const { data } = await apiClient.put(`/messages/${bookingId}/read/`);
+    return data;
+  },
+
+  /* ------------------------------------------------------- reviews ------ */
+
+  /** Public — anyone can read a listing's reviews. */
+  async reviews(listingId) {
+    const { data } = await apiClient.get(`/reviews/${listingId}/`);
+    return (data?.results ?? data ?? []).map((review) => ({
+      id: review.id,
+      bookingId: review.booking,
+      propertyId: review.property,
+      propertyName: review.property_name ?? '',
+      guestEmail: review.guest_email ?? '',
+      ratings: {
+        cleanliness: review.rating_cleanliness,
+        accuracy: review.rating_accuracy,
+        location: review.rating_location,
+        value: review.rating_value,
+        communication: review.rating_communication,
+      },
+      overall: review.rating_overall,
+      body: review.body ?? '',
+      isFlagged: Boolean(review.is_flagged),
+      createdAt: review.created_at,
+    }));
+  },
+
+  /**
+   * Leave a review.
+   *
+   * Five sub-ratings plus an overall, which is why the form is a set of rows
+   * rather than one star control — the API models them separately and a single
+   * score would have to be invented to fill the rest.
+   */
+  async createReview({ bookingId, propertyId, ratings, overall, body }) {
+    const { data } = await apiClient.post('/reviews/', {
+      booking: bookingId,
+      property: propertyId,
+      rating_cleanliness: ratings.cleanliness,
+      rating_accuracy: ratings.accuracy,
+      rating_location: ratings.location,
+      rating_value: ratings.value,
+      rating_communication: ratings.communication,
+      rating_overall: overall,
+      body,
+    });
+    return data;
+  },
+
+  /** Records the referencing fee against the check once it has been paid. */
+  async payReferencingFee({ bookingId, amount, currency, provider, providerReference }) {
+    const { data } = await apiClient.post('/kyc/full/referencing-fee/', {
+      booking_id: bookingId,
+      amount: String(amount),
+      currency,
+      provider,
+      ...(providerReference ? { provider_reference: providerReference } : {}),
+    });
+
+    return { kycCheckId: data.kyc_check_id, referenceFeeId: data.reference_fee_id, detail: data.detail ?? '' };
+  },
 };
 
 const backend = env.useMockBookings ? mockBookings : realBookings;
@@ -453,6 +659,19 @@ export const bookingService = {
 
   startIdentity: (bookingId) => backend.startIdentity(bookingId),
   getIdentityStatus: (guestId) => backend.identityStatus(guestId),
+
+  /* Full KYC has no mock half — a faked compliance pass is worse than none. */
+  startFullKyc: (payload) => realBookings.startFullKyc(payload),
+  getFullKycStatus: (guestId) => realBookings.fullKycStatus(guestId),
+  payReferencingFee: (payload) => realBookings.payReferencingFee(payload),
+
+  /* Stay extras and reviews — real API only; there is nothing useful to mock. */
+  getGuidebook: (propertyId) => realBookings.guidebook(propertyId),
+  requestExtension: (payload) => realBookings.requestExtension(payload),
+  getCheckoutReport: (bookingId) => realBookings.checkoutReport(bookingId),
+  markMessagesRead: (bookingId) => realBookings.markMessagesRead(bookingId),
+  getReviews: (listingId) => realBookings.reviews(listingId),
+  createReview: (payload) => realBookings.createReview(payload),
   getTaxRules: () => backend.taxRules(),
   getInspection: (bookingId, stage) => backend.inspection(bookingId, stage),
   acknowledgeInspection: (bookingId, stage) => backend.acknowledgeInspection(bookingId, stage),

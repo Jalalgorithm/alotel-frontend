@@ -35,7 +35,6 @@ export const NotificationBell = () => {
   const { markRead, markAllRead, isMarkingAll } = useNotificationMutations();
 
   const preview = notifications.slice(0, PREVIEW_COUNT);
-  const unreadIds = notifications.filter((n) => !n.isRead).map((n) => n.id);
 
   return (
     <div className="relative" ref={panelRef}>
@@ -67,7 +66,7 @@ export const NotificationBell = () => {
               <button
                 type="button"
                 disabled={isMarkingAll}
-                onClick={() => markAllRead(unreadIds)}
+                onClick={() => markAllRead()}
                 className="inline-flex items-center gap-1 text-[11px] font-medium text-brand-700 hover:underline disabled:opacity-50"
               >
                 <Check className="size-3" aria-hidden="true" />

@@ -15,6 +15,7 @@ export const queryKeys = {
 
   spaces: {
     paymentStatus: (id) => ['spaces', 'payment-status', id],
+    myBookings: () => ['spaces', 'my-bookings'],
     availabilityRange: (id, from, to) => ['spaces', 'availability-range', id, from, to],
     /* Prefix key — booking a space changes availability and the guest's own
        list, so everything under `spaces` invalidates together. */

@@ -39,6 +39,21 @@ export const useSpaceBookings = () =>
     queryFn: spaceService.getMySpaceBookings,
   });
 
+/**
+ * The guest's own space bookings.
+ *
+ * Note the separate endpoint: `GET /spaces/bookings/` is the host approval
+ * queue and 403s for a guest, so this reads `/mine/` instead. Refetched on
+ * focus because a request-to-book can be answered by the host while the
+ * dashboard sits open in a background tab.
+ */
+export const useMySpaceBookings = () =>
+  useQuery({
+    queryKey: queryKeys.spaces.myBookings(),
+    queryFn: spaceService.getMySpaceBookings,
+    refetchOnWindowFocus: true,
+  });
+
 export const useSpaceBooking = (id) =>
   useQuery({
     queryKey: queryKeys.spaces.booking(id),

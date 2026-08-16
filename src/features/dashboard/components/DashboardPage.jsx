@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { StatCard } from './StatCard';
 import { BookingList } from './BookingList';
+import { SpaceBookingList } from './SpaceBookingList';
 import { SavedPropertyList } from './SavedPropertyList';
 import { useDashboardSummary } from '../hooks/useDashboardSummary';
 import { useAuth, useLogout } from '@/features/auth';
@@ -170,6 +171,26 @@ export const DashboardPage = () => {
             <BookingList bookings={filterBookings(summary.bookings, activeTab)} />
           )}
         </div>
+      </section>
+
+      {/*
+        Spaces get their own section rather than joining the list above: a
+        residence is booked by the night and a space by the hour, they cancel
+        under different rules, and only a space can be waiting on a host's
+        answer. One list would have to hedge about which kind each row was.
+      */}
+      <section className="mt-6 rounded-card border border-line bg-surface p-5 shadow-card">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="font-display text-lg font-semibold">Your spaces</h2>
+            <p className="section-sub mt-1">Meeting rooms, studios and halls booked by the hour or the day.</p>
+          </div>
+          <Button to={paths.spaces} size="sm" variant="secondary">
+            Browse spaces
+          </Button>
+        </div>
+
+        <SpaceBookingList className="mt-4" />
       </section>
 
       {/* Saved properties */}

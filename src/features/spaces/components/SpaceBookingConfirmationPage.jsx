@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { SpacesEmpty } from './SpacesEmpty';
 import { formatCurrency, formatDate } from '@/utils/format';
 import { formatTime, SPACE_BOOKING_STATUSES } from '@/lib/spaceSchema';
-import { useCancelSpaceBooking, useSpaceBooking } from '../hooks/useSpaces';
+import { useCancelSpaceBooking, useSpaceBooking, useSpacePaymentStatus } from '../hooks/useSpaces';
 
 /**
  * The outcome of a space booking.
@@ -79,6 +79,16 @@ const RequestTracker = ({ status }) => {
 export const SpaceBookingConfirmationPage = () => {
   const { bookingId } = useParams();
   const { data: booking, isLoading } = useSpaceBooking(bookingId);
+
+  /*
+   * Poll while the booking is unpaid. Each call reconciles server-side against
+   * the provider, so this is what actually resolves a booking whose webhook
+   * never landed — previously it sat on `pending_payment` for ever and the
+   * page simply said payment had not finished, with no way forward.
+   */
+  const { data: paymentState } = useSpacePaymentStatus(bookingId, {
+    enabled: booking?.status === 'pending_payment',
+  });
   const { cancel, isPending: cancelling } = useCancelSpaceBooking();
   const countdown = useCountdown(booking?.expiresAt);
 
@@ -98,11 +108,26 @@ export const SpaceBookingConfirmationPage = () => {
     );
   }
 
-  const status = SPACE_BOOKING_STATUSES[booking.status] ?? { label: booking.status, tone: 'neutral' };
-  const isAwaitingPayment = booking.status === 'pending_payment';
-  const isPending = booking.status === 'pending_host_approval';
-  const isConfirmed = ['confirmed', 'completed'].includes(booking.status);
-  const isDead = ['declined', 'expired', 'cancelled'].includes(booking.status);
+  /*
+   * The poll is fresher than the cached booking once it starts returning, so
+   * every derived flag below reads from it rather than from the booking that
+   * was loaded before the guest went off to pay.
+   */
+  const liveStatus = paymentState?.status ?? booking.status;
+
+  const status = SPACE_BOOKING_STATUSES[liveStatus] ?? { label: liveStatus, tone: 'neutral' };
+  const isAwaitingPayment = liveStatus === 'pending_payment';
+
+  /*
+   * Two different situations wear the same booking status. The provider may
+   * simply not have reported yet (`initiated`) — normal for the first seconds
+   * after checkout — or it may have reported failure. Saying "payment not
+   * finished" during the former is alarming and wrong.
+   */
+  const isSettling = isAwaitingPayment && (paymentState?.paymentStatus ?? 'initiated') === 'initiated';
+  const isPending = liveStatus === 'pending_host_approval';
+  const isConfirmed = ['confirmed', 'completed'].includes(liveStatus);
+  const isDead = ['declined', 'expired', 'cancelled'].includes(liveStatus);
 
   /* The same conditions the API enforces on PATCH /cancel/. */
   const CANCELLABLE = ['pending_payment', 'pending_host_approval', 'confirmed'];
@@ -129,8 +154,10 @@ export const SpaceBookingConfirmationPage = () => {
         <h1 className="mt-3 font-display text-[22px] font-semibold text-ink">
           {isConfirmed
             ? 'Your space is confirmed'
-            : isAwaitingPayment
-              ? 'Payment not finished'
+            : isSettling
+              ? 'Confirming your payment'
+              : isAwaitingPayment
+                ? 'Payment not finished'
               : isPending
                 ? 'Request sent'
                 : status.label}
@@ -139,8 +166,10 @@ export const SpaceBookingConfirmationPage = () => {
         <p className="mt-1.5 text-[13.5px] text-ink-soft">
           {isConfirmed
             ? 'The room is held for you. We have emailed the details.'
-            : isAwaitingPayment
-              ? 'Your slot is held but nothing has been taken yet. Finish paying to confirm it.'
+            : isSettling
+              ? 'This usually takes a few seconds. Your slot is held while we check with the payment provider.'
+              : isAwaitingPayment
+                ? 'Your slot is held but nothing has been taken yet. Finish paying to confirm it.'
             : isPending
               ? `${booking.spaceName} — the host has ${countdown === 'expired' ? 'no time' : countdown} left to respond.`
               : booking.declineReason || 'This booking is no longer going ahead.'}
@@ -152,7 +181,7 @@ export const SpaceBookingConfirmationPage = () => {
         "confirmed" here would be a lie, and saying nothing leaves the guest
         assuming a room they have not actually secured.
       */}
-      {isAwaitingPayment && (
+      {isAwaitingPayment && !isSettling && (
         <Alert
           variant="warn"
           className="mt-5"

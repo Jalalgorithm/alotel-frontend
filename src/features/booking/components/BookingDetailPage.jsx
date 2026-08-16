@@ -36,6 +36,7 @@ import { BookingProgress } from './BookingProgress';
 import { InspectionAcknowledgement } from './InspectionAcknowledgement';
 import { FullKycPanel } from './FullKycPanel';
 import { CheckoutReportPanel } from './CheckoutReportPanel';
+import { DepositPanel } from './DepositPanel';
 import { StayExtras } from './StayExtras';
 import { PriceSummary } from './PriceSummary';
 import { printReceipt } from '../receiptDocument';
@@ -576,6 +577,8 @@ export const BookingDetailPage = () => {
           <div className="space-y-5 lg:col-start-1 lg:row-start-2">
             {/* Only once staff have completed a stage, and never on a booking
                 that is no longer going ahead. */}
+            {!isCancelled && <DepositPanel booking={booking} />}
+
             {!isCancelled && <CheckoutReportPanel booking={booking} />}
 
             {!isCancelled && <InspectionAcknowledgement bookingId={booking.id} />}

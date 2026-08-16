@@ -111,6 +111,26 @@ export const useBookSpace = (spaceId) => {
   return { book: book.mutate, isPending: book.isPending, booking: book.data?.booking };
 };
 
+/**
+ * Poll a space booking's payment state after the provider redirect.
+ *
+ * Stops as soon as the booking settles either way. Each call reconciles
+ * server-side, so this resolves even when the webhook never arrives — which
+ * was previously the reason a paid space booking sat on `pending_payment`
+ * indefinitely.
+ */
+export const useSpacePaymentStatus = (bookingId, { enabled = true } = {}) =>
+  useQuery({
+    queryKey: queryKeys.spaces.paymentStatus(bookingId),
+    queryFn: () => spaceService.getSpacePaymentStatus(bookingId),
+    enabled: Boolean(bookingId) && enabled,
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return status && status !== 'pending_payment' ? false : 3000;
+    },
+    retry: false,
+  });
+
 export const useCancelSpaceBooking = () => {
   const queryClient = useQueryClient();
 

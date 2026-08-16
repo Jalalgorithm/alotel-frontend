@@ -388,6 +388,26 @@ const realSpaces = {
     return (data?.results ?? data ?? []).map(toSpaceBooking);
   },
 
+  /**
+   * Post-checkout reconciliation for a space booking.
+   *
+   * The provider returns the guest before its webhook has necessarily landed,
+   * so this is polled until the booking leaves `pending_payment`. The endpoint
+   * does not merely read — it polls the provider directly for a still-initiated
+   * transaction, which is what actually resolves the booking when a webhook
+   * never arrives.
+   */
+  async paymentStatus(bookingId) {
+    const { data } = await apiClient.get(`/spaces/bookings/${bookingId}/payment-status/`);
+    return {
+      bookingId: data.space_booking_id,
+      status: data.status,
+      /* The transaction's own state — `initiated` means the provider has not
+         reported success, which is different from the booking being refused. */
+      paymentStatus: data.payment_status ?? null,
+    };
+  },
+
   /** A guest *can* read their own booking by id, just not list them. */
   async booking(id) {
     const { data } = await apiClient.get(`/spaces/bookings/${id}/`);
@@ -412,6 +432,7 @@ const backend = env.useMockSpaces ? mockSpaces : realSpaces;
 export const spaceService = {
   getSpaces: (filters) => backend.list(filters),
   initiateSpacePayment: (payload) => backend.initiatePayment?.(payload) ?? null,
+  getSpacePaymentStatus: (bookingId) => realSpaces.paymentStatus(bookingId),
   getSpace: (id) => backend.detail(id),
   getAvailability: (id, date) => backend.availability(id, date),
   getQuote: (id, selection) => backend.quote(id, selection),

@@ -574,6 +574,46 @@ const realBookings = {
     }
   },
 
+  /**
+   * The security deposit's ledger.
+   *
+   * Readable by the booking's own guest as of the latest backend change — it
+   * was Super-Admin-only before, which is why a guest could see the deposit
+   * *amount* on their invoice but never learn whether it had been released.
+   *
+   * 404 means no deposit was taken for this booking, which is a normal state
+   * rather than an error.
+   */
+  async deposit(bookingId) {
+    try {
+      const { data } = await apiClient.get(`/deposits/${bookingId}/`);
+      const ledger = data.ledger ?? data;
+
+      return {
+        id: ledger.id,
+        method: ledger.collection_method,
+        status: ledger.status,
+        currency: ledger.currency ?? 'GBP',
+        authorized: Number(ledger.amount_authorized) || 0,
+        captured: Number(ledger.amount_captured) || 0,
+        deducted: Number(ledger.amount_deducted) || 0,
+        released: Number(ledger.amount_released) || 0,
+        releaseDueAt: ledger.release_due_at ?? null,
+        releasedAt: ledger.released_at ?? null,
+        claims: (data.claims ?? []).map((claim) => ({
+          id: claim.id,
+          amount: Number(claim.amount) || 0,
+          reason: claim.reason ?? '',
+          status: claim.status,
+          createdAt: claim.created_at ?? null,
+        })),
+      };
+    } catch (error) {
+      if (error?.status === 404) return null;
+      throw error;
+    }
+  },
+
   /** Marks the thread read. Note the verb: the endpoint is PUT, not POST. */
   async markMessagesRead(bookingId) {
     const { data } = await apiClient.put(`/messages/${bookingId}/read/`);
@@ -669,6 +709,7 @@ export const bookingService = {
   getGuidebook: (propertyId) => realBookings.guidebook(propertyId),
   requestExtension: (payload) => realBookings.requestExtension(payload),
   getCheckoutReport: (bookingId) => realBookings.checkoutReport(bookingId),
+  getDeposit: (bookingId) => realBookings.deposit(bookingId),
   markMessagesRead: (bookingId) => realBookings.markMessagesRead(bookingId),
   getReviews: (listingId) => realBookings.reviews(listingId),
   createReview: (payload) => realBookings.createReview(payload),

@@ -14,6 +14,7 @@ export const queryKeys = {
   },
 
   spaces: {
+    paymentStatus: (id) => ['spaces', 'payment-status', id],
     /* Prefix key — booking a space changes availability and the guest's own
        list, so everything under `spaces` invalidates together. */
     all: () => ['spaces'],
@@ -63,6 +64,7 @@ export const queryKeys = {
     contractStatus: (id) => ['bookings', 'contract-status', id],
     fullKyc: (guestId) => ['bookings', 'full-kyc', guestId],
     checkoutReport: (id) => ['bookings', 'checkout-report', id],
+    deposit: (id) => ['bookings', 'deposit', id],
     guidebook: (propertyId) => ['bookings', 'guidebook', propertyId],
     reviews: (listingId) => ['bookings', 'reviews', listingId],
     messages: (id) => ['bookings', 'messages', id],

@@ -115,8 +115,9 @@ export const notificationService = {
     return data?.unread_count ?? 0;
   },
 
+  /** PUT, not PATCH — the endpoint defines only `put`, as with messages. */
   async markRead(id) {
-    const { data } = await apiClient.patch(`/notifications/${id}/read/`);
+    const { data } = await apiClient.put(`/notifications/${id}/read/`);
     return toNotification(data);
   },
 
@@ -148,7 +149,13 @@ export const notificationService = {
     if (patch.inApp !== undefined) body.in_app_enabled = patch.inApp;
     if (patch.marketing !== undefined) body.marketing_enabled = patch.marketing;
 
-    const { data } = await apiClient.patch(`/notifications/preferences/${userId}/`, body);
+    /*
+     * PUT, not PATCH. Every write in the notifications app is defined as
+     * `put` — mark-read and preferences alike — while the rest of this API
+     * uses PATCH for partial updates. Guessing by convention gives a
+     * "Method PATCH not allowed" 405 rather than anything descriptive.
+     */
+    const { data } = await apiClient.put(`/notifications/preferences/${userId}/`, body);
     return {
       email: Boolean(data?.email_enabled),
       sms: Boolean(data?.sms_enabled),

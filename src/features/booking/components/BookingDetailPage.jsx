@@ -480,7 +480,7 @@ export const BookingDetailPage = () => {
               subtitle={isCancelled ? 'Where this booking got to before it ended.' : 'Where this booking has got to.'}
             >
               {timeline?.steps?.length ? (
-                <BookingProgress timeline={timeline} />
+                <BookingProgress timeline={timeline} bookingId={booking.id} />
               ) : (
                 <Skeleton className="h-40 w-full" />
               )}

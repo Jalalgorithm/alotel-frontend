@@ -1,6 +1,8 @@
+import { useMemo } from 'react';
 import { Check } from 'lucide-react';
 import { cn } from '@/utils/classNames';
 import { formatDate } from '@/utils/format';
+import { useInspection } from '../hooks/useBookingMutations';
 
 /**
  * The stay's journey, rendered from whatever steps the API reports.
@@ -9,8 +11,43 @@ import { formatDate } from '@/utils/format';
  * a booking has and which are done, so a change there (a new contract step, a
  * skipped deposit) shows up here without a frontend release.
  */
-export const BookingProgress = ({ timeline, className }) => {
-  const steps = timeline?.steps ?? [];
+export const BookingProgress = ({ timeline, bookingId, className }) => {
+  /*
+   * The check-in inspection the guest has to confirm.
+   *
+   * The API's timeline has no step for this, but it is a real thing the guest
+   * must do and the only one of these stages that is *theirs* — every other
+   * step happens to them. Left out, a guest saw "Checked In" tick over while
+   * the confirmation we were waiting on went unmentioned.
+   */
+  const { data: checkin } = useInspection(bookingId, 'checkin');
+
+  const steps = useMemo(() => {
+    const serverSteps = timeline?.steps ?? [];
+    if (!serverSteps.length) return [];
+
+    /* Nothing to show until staff have recorded the check-in. */
+    if (!checkin) return serverSteps;
+
+    const acknowledgement = {
+      id: 'guest-acknowledgement',
+      label: 'You confirmed the check-in record',
+      isComplete: Boolean(checkin.isAcknowledged),
+      completedAt: checkin.acknowledgedAt ?? null,
+      /* Distinguishes "waiting on you" from "waiting on us", which the
+         generic "In progress" caption cannot. */
+      isGuestAction: true,
+      isReady: Boolean(checkin.isComplete),
+    };
+
+    /* Sits immediately before Checked In: the guest's confirmation is what
+       completes the arrival, so it reads as the step on the way in. */
+    const at = serverSteps.findIndex((step) => /checked in/i.test(step.label));
+    if (at === -1) return [...serverSteps, acknowledgement];
+
+    return [...serverSteps.slice(0, at), acknowledgement, ...serverSteps.slice(at)];
+  }, [timeline, checkin]);
+
   if (!steps.length) return null;
 
   /** The first incomplete step is where the guest is now. */
@@ -57,7 +94,15 @@ export const BookingProgress = ({ timeline, className }) => {
                 {step.label}
               </p>
               <p className="text-[11px] text-ink-muted">
-                {step.completedAt ? formatDate(step.completedAt) : isCurrent ? 'In progress' : 'Not yet'}
+                {step.completedAt
+                  ? formatDate(step.completedAt)
+                  : step.isGuestAction && step.isReady
+                    ? 'Waiting for you to confirm'
+                    : step.isGuestAction
+                      ? 'Once our team has finished the inspection'
+                      : isCurrent
+                        ? 'In progress'
+                        : 'Not yet'}
               </p>
             </div>
           </li>

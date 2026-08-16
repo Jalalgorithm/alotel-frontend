@@ -124,6 +124,31 @@ const mockSpaces = {
    * can block submission itself instead of letting a guest fill everything in
    * and be rejected at the end.
    */
+  /** Mock range: reuses the single-date mock for each day in the window. */
+  async availabilityRange(id, from, to) {
+    await delay(300);
+    const days = [];
+    const cursor = new Date(`${from}T00:00:00`);
+    const end = new Date(`${to}T00:00:00`);
+
+    while (cursor <= end) {
+      const iso = cursor.toISOString().slice(0, 10);
+      const day = await mockSpaces.availability(id, iso);
+      days.push({
+        date: iso,
+        operatingHours: day.operatingHours,
+        bookedWindows: day.bookedWindows,
+        openWindows: day.openWindows,
+        isBlackedOut: Boolean(day.closedReason?.includes('this date')),
+        isClosed: !day.operatingHours,
+        hasSpace: day.openWindows.length > 0,
+      });
+      cursor.setDate(cursor.getDate() + 1);
+    }
+
+    return days;
+  },
+
   async quote(id, selection) {
     await delay(300);
 
@@ -309,6 +334,34 @@ const realSpaces = {
     };
   },
 
+  /**
+   * A whole month's availability in one request.
+   *
+   * Range mode returns `{from, to, days[]}`, each day carrying the same shape
+   * as the single-date response. Painting a calendar was previously ~30
+   * sequential calls, which is why the month view was deferred until this
+   * existed.
+   */
+  async availabilityRange(id, from, to) {
+    const { data } = await apiClient.get(`/spaces/${id}/availability/`, { params: { from, to } });
+
+    return (data?.days ?? []).map((day) => {
+      const hours = day.operating_hours ?? null;
+
+      return {
+        date: day.date,
+        operatingHours: hours ? { open: hours.open.slice(0, 5), close: hours.close.slice(0, 5) } : null,
+        bookedWindows: day.booked_windows ?? [],
+        openWindows: day.open_windows ?? [],
+        isBlackedOut: Boolean(day.blacked_out),
+        /* Closed for a declared reason vs simply not open that weekday —
+           different facts, and a guest planning around them needs both. */
+        isClosed: !hours,
+        hasSpace: (day.open_windows ?? []).length > 0,
+      };
+    });
+  },
+
   async quote(id, selection) {
     const { data } = await apiClient.post(`/spaces/${id}/quote/`, {
       start_datetime: `${selection.date}T${selection.startTime}:00`,
@@ -433,6 +486,7 @@ export const spaceService = {
   getSpaces: (filters) => backend.list(filters),
   initiateSpacePayment: (payload) => backend.initiatePayment?.(payload) ?? null,
   getSpacePaymentStatus: (bookingId) => realSpaces.paymentStatus(bookingId),
+  getSpaceAvailabilityRange: (id, from, to) => backend.availabilityRange?.(id, from, to) ?? [],
   getSpace: (id) => backend.detail(id),
   getAvailability: (id, date) => backend.availability(id, date),
   getQuote: (id, selection) => backend.quote(id, selection),

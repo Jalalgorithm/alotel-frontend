@@ -9,6 +9,7 @@ import { formatCurrency } from '@/utils/format';
 import { selectIsAuthenticated, useAuthStore } from '@/stores/authStore';
 import { capacityCheck, rateSuffix } from '@/lib/spaceSchema';
 import { useSpaceAvailability, useSpaceQuote } from '../hooks/useSpaces';
+import { SpaceMonthCalendar } from './SpaceMonthCalendar';
 import { TimeWindowPicker } from './TimeWindowPicker';
 
 /**
@@ -168,6 +169,13 @@ export const SpaceBookingPanel = ({ space }) => {
             />
           </div>
         </label>
+
+        {/*
+          The month view sits under the date field rather than replacing it:
+          typing a known date stays the fastest route, and browsing is what the
+          calendar is for. Both write to the same state.
+        */}
+        <SpaceMonthCalendar spaceId={space.id} value={date} onSelect={setDate} className="mt-2.5" />
 
         <div>
           <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-muted">

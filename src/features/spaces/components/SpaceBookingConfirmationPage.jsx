@@ -1,6 +1,17 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { CalendarDays, CalendarPlus, CheckCircle2, Clock, Hourglass, MapPin, Users, XCircle } from 'lucide-react';
+import {
+  CalendarDays,
+  CalendarPlus,
+  CheckCircle2,
+  Clock,
+  Download,
+  Hourglass,
+  MapPin,
+  MessageSquare,
+  Users,
+  XCircle,
+} from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
@@ -10,6 +21,8 @@ import { formatCurrency, formatDate } from '@/utils/format';
 import { formatTime, SPACE_BOOKING_STATUSES } from '@/lib/spaceSchema';
 import { useCancelSpaceBooking, useSpace, useSpaceBooking, useSpacePaymentStatus } from '../hooks/useSpaces';
 import { spaceService } from '../services/spaceService';
+import { printSpaceReceipt } from '../spaceReceipt';
+import { useAuth } from '@/features/auth';
 import { toast } from '@/stores/uiStore';
 import { getErrorMessage } from '@/utils/errors';
 
@@ -131,6 +144,7 @@ export const SpaceBookingConfirmationPage = () => {
     enabled: booking?.status === 'pending_payment',
   });
   const { cancel, isPending: cancelling } = useCancelSpaceBooking();
+  const { user } = useAuth();
 
   /* For the address and directions — the booking carries only the space name. */
   const { data: space } = useSpace(booking?.spaceId);
@@ -404,7 +418,40 @@ export const SpaceBookingConfirmationPage = () => {
         </div>
       )}
 
+      {/*
+        Messaging is property-only server-side — `MessageThread.booking` is a
+        one-to-one on `bookings.Booking`, so a space booking has no thread to
+        write into. Rather than show a box that cannot send, the guest is given
+        the routes that do work, with the reference they will be asked for.
+      */}
+      <div className="mt-5 rounded-card border border-line bg-surface p-5 shadow-card">
+        <h2 className="inline-flex items-center gap-2 font-display text-[15px] font-semibold text-ink">
+          <MessageSquare className="size-4 text-brand-600" aria-hidden="true" />
+          Need to change something?
+        </h2>
+        <p className="mt-1 text-[12.5px] leading-5 text-ink-soft">
+          Email us at{' '}
+          <a href={`mailto:hello@alotelspaces.com?subject=${encodeURIComponent(`Space booking ${booking.id}`)}`} className="font-medium text-brand-700 hover:underline">
+            hello@alotelspaces.com
+          </a>{' '}
+          quoting the reference above, and we will pick it up within a working day.
+        </p>
+      </div>
+
       <div className="mt-5 flex flex-wrap justify-center gap-2">
+        {/* Offered whenever money has settled — the same rule the property
+            receipt follows, so neither promises a document for a booking that
+            was never paid. */}
+        {isConfirmed && (
+          <Button
+            variant="secondary"
+            onClick={() => printSpaceReceipt({ booking, space, guest: user })}
+            leftIcon={<Download className="size-3.5" aria-hidden="true" />}
+          >
+            Download receipt
+          </Button>
+        )}
+
         <Button to="/spaces" variant="secondary">
           Browse more spaces
         </Button>

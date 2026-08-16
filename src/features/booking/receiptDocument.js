@@ -148,7 +148,21 @@ const STYLES = `
  * @param {{ receipt, booking, property, guest }} data
  * @returns {string} a complete HTML document
  */
-export const buildReceiptHtml = ({ receipt, booking, property, guest }) => {
+/**
+ * @param {object} args
+ * @param {object} args.receipt   line items, payments and totals
+ * @param {object} [args.booking] the stay, for the dates line
+ * @param {object} [args.property] what was booked
+ * @param {object} [args.guest]   who it is billed to
+ * @param {object} [args.labels]  overrides for the two wording-specific rows —
+ *   a space is hired for a window of hours, not slept in for a number of
+ *   nights, so "Residence"/"Stay" would be wrong on its receipt. Everything
+ *   else is identical, which is the point: one template, one look.
+ * @param {string} [args.stayLine] pre-rendered HTML for the period booked
+ */
+export const buildReceiptHtml = ({ receipt, booking, property, guest, labels, stayLine }) => {
+  const subjectLabel = labels?.subject ?? 'Residence';
+  const periodLabel = labels?.period ?? 'Stay';
   const currency = receipt.currency;
   const money = (value, code = currency) => escapeHtml(formatCurrency(Number(value) || 0, code));
   const isPaid = SETTLED.includes(receipt.status) || receipt.payments.some((p) => p.status === 'succeeded');
@@ -180,7 +194,9 @@ export const buildReceiptHtml = ({ receipt, booking, property, guest }) => {
         .join('')}</table>`
     : '<p class="empty">No payment has settled against this booking yet.</p>';
 
-  const stay = booking
+  const stay = stayLine
+    ? stayLine
+    : booking
     ? `${escapeHtml(formatDate(booking.checkIn))} → ${escapeHtml(formatDate(booking.checkOut))}<br>
        <small style="color:#7c8a83">${booking.nights} ${booking.nights === 1 ? 'night' : 'nights'} · ${
          booking.adults
@@ -222,13 +238,13 @@ export const buildReceiptHtml = ({ receipt, booking, property, guest }) => {
           )}</div>
         </div>
         <div>
-          <div class="label">Residence</div>
-          <div class="value"><strong>${escapeHtml(property?.name ?? 'Residence')}</strong>${escapeHtml(
+          <div class="label">${escapeHtml(subjectLabel)}</div>
+          <div class="value"><strong>${escapeHtml(property?.name ?? subjectLabel)}</strong>${escapeHtml(
             [property?.city, property?.country].filter(Boolean).join(', '),
           )}</div>
         </div>
         <div>
-          <div class="label">Stay</div>
+          <div class="label">${escapeHtml(periodLabel)}</div>
           <div class="value">${stay}</div>
         </div>
       </div>

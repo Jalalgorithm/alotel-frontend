@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { CalendarDays, CheckCircle2, Clock, Hourglass, Users, XCircle } from 'lucide-react';
+import { CalendarDays, CalendarPlus, CheckCircle2, Clock, Hourglass, MapPin, Users, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
@@ -8,7 +8,10 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { SpacesEmpty } from './SpacesEmpty';
 import { formatCurrency, formatDate } from '@/utils/format';
 import { formatTime, SPACE_BOOKING_STATUSES } from '@/lib/spaceSchema';
-import { useCancelSpaceBooking, useSpaceBooking, useSpacePaymentStatus } from '../hooks/useSpaces';
+import { useCancelSpaceBooking, useSpace, useSpaceBooking, useSpacePaymentStatus } from '../hooks/useSpaces';
+import { spaceService } from '../services/spaceService';
+import { toast } from '@/stores/uiStore';
+import { getErrorMessage } from '@/utils/errors';
 
 /**
  * The outcome of a space booking.
@@ -21,6 +24,44 @@ import { useCancelSpaceBooking, useSpaceBooking, useSpacePaymentStatus } from '.
  * For a pending request the page shows a live countdown to auto-expiry, because
  * "24 hours to respond" is only reassuring if you can see how much is left.
  */
+
+/**
+ * A calendar entry for the booking.
+ *
+ * Built and downloaded in the browser rather than fetched: the booking is
+ * already loaded, and an `.ics` file is a few lines of text. Times are written
+ * in UTC (the trailing `Z`) so the entry lands correctly whatever timezone the
+ * guest's calendar is set to.
+ */
+const downloadCalendarFile = (booking, space) => {
+  const stamp = (iso) => `${iso.replace(/[-:]/g, '').split('.')[0]}Z`;
+  const where = [space?.address, space?.city, space?.country].filter(Boolean).join(', ');
+
+  const ics = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Alotel Spaces//EN',
+    'BEGIN:VEVENT',
+    `UID:${booking.id}@alotelspaces.com`,
+    `DTSTAMP:${stamp(new Date().toISOString())}`,
+    `DTSTART:${stamp(new Date(booking.startDateTime).toISOString())}`,
+    `DTEND:${stamp(new Date(booking.endDateTime).toISOString())}`,
+    `SUMMARY:${booking.spaceName || 'Space booking'}`,
+    `LOCATION:${where}`,
+    `DESCRIPTION:Alotel Spaces booking ${booking.id}`,
+    'END:VEVENT',
+    'END:VCALENDAR',
+    /* CRLF between lines — the iCalendar spec requires it, and some desktop
+       clients reject a file that uses bare newlines. */
+  ].join('\r\n');
+
+  const url = URL.createObjectURL(new Blob([ics], { type: 'text/calendar' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'alotel-space-booking.ics';
+  link.click();
+  URL.revokeObjectURL(url);
+};
 
 /** Human "7h 12m left", recomputed each minute. */
 const useCountdown = (expiresAt) => {
@@ -90,6 +131,33 @@ export const SpaceBookingConfirmationPage = () => {
     enabled: booking?.status === 'pending_payment',
   });
   const { cancel, isPending: cancelling } = useCancelSpaceBooking();
+
+  /* For the address and directions — the booking carries only the space name. */
+  const { data: space } = useSpace(booking?.spaceId);
+
+  /*
+   * Paying again for a booking that already exists.
+   *
+   * Without this a guest whose payment fell through had a real booking, a held
+   * slot, and no way to pay for it — the only instruction was to start over
+   * from the space, which loses the layout and add-ons they had chosen.
+   */
+  const [isRetrying, setRetrying] = useState(false);
+  const retryPayment = async () => {
+    setRetrying(true);
+    try {
+      const payment = await spaceService.initiateSpacePayment({
+        bookingId: booking.id,
+        currency: booking.currency,
+      });
+      if (payment?.paymentUrl) window.location.assign(payment.paymentUrl);
+      else toast.error('Could not reopen payment', 'Message us and we will send a payment link.');
+    } catch (error) {
+      toast.error('Could not reopen payment', getErrorMessage(error));
+    } finally {
+      setRetrying(false);
+    }
+  };
   const countdown = useCountdown(booking?.expiresAt);
 
   if (isLoading) {
@@ -188,8 +256,13 @@ export const SpaceBookingConfirmationPage = () => {
           title="This space is not booked yet"
           facts={[{ label: 'To pay', value: formatCurrency(booking.totalPrice, booking.currency) }]}
         >
-          The slot is held while you pay. If you closed the payment page by accident, start the booking again from the
-          space and your held slot will still be there.
+          The slot is held while you pay. Your date, layout and add-ons are all saved — picking up where you left off
+          does not mean choosing them again.
+          <span className="mt-3 block">
+            <Button size="sm" isLoading={isRetrying} disabled={isRetrying} onClick={retryPayment}>
+              Finish paying
+            </Button>
+          </span>
         </Alert>
       )}
 
@@ -287,6 +360,49 @@ export const SpaceBookingConfirmationPage = () => {
           </div>
         </dl>
       </div>
+
+      {/*
+        Only once the slot is genuinely theirs. Handing someone directions and
+        a calendar entry for a booking still awaiting payment or a host's
+        answer would imply a certainty that does not exist yet.
+      */}
+      {isConfirmed && space && (
+        <div className="mt-5 rounded-card border border-line bg-surface p-5 shadow-card">
+          <h2 className="inline-flex items-center gap-2 font-display text-[15px] font-semibold text-ink">
+            <MapPin className="size-4 text-brand-600" aria-hidden="true" />
+            Getting there
+          </h2>
+          <p className="mt-1 text-[12.5px] leading-5 text-ink-soft">
+            {[space.address, space.city, space.country].filter(Boolean).join(', ')}
+          </p>
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button
+              href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
+                space.coordinates?.lat != null
+                  ? `${space.coordinates.lat},${space.coordinates.lng}`
+                  : [space.address, space.city, space.country].filter(Boolean).join(', '),
+              )}`}
+              target="_blank"
+              rel="noreferrer noopener"
+              size="sm"
+              variant="secondary"
+              leftIcon={<MapPin className="size-3.5" aria-hidden="true" />}
+            >
+              Directions
+            </Button>
+
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => downloadCalendarFile(booking, space)}
+              leftIcon={<CalendarPlus className="size-3.5" aria-hidden="true" />}
+            >
+              Add to calendar
+            </Button>
+          </div>
+        </div>
+      )}
 
       <div className="mt-5 flex flex-wrap justify-center gap-2">
         <Button to="/spaces" variant="secondary">

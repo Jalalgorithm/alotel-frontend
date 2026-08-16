@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CalendarDays, CheckCircle2, Download, Home, Loader2, MapPin, TriangleAlert, Users } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
@@ -25,10 +25,19 @@ import { useProperty } from '@/features/properties';
  */
 export const BookingSuccessPage = () => {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const draftBookingId = useBookingStore((state) => state.draft.bookingId);
   const reset = useBookingStore((state) => state.reset);
 
-  const incomingId = searchParams.get('booking_id') ?? draftBookingId ?? null;
+  /*
+   * The provider returns every guest to this one URL and names the parameter
+   * after the kind of booking: `space_booking_id` for a space,
+   * `booking_id` for a residence. Reading the space one first means a space
+   * checkout is routed immediately, with no wasted lookup against the
+   * property endpoint.
+   */
+  const spaceBookingId = searchParams.get('space_booking_id');
+  const incomingId = spaceBookingId ?? searchParams.get('booking_id') ?? draftBookingId ?? null;
 
   /**
    * Latch the booking id the first time we see one, and never let go.
@@ -45,7 +54,28 @@ export const BookingSuccessPage = () => {
     if (incomingId && !bookingId) setBookingId(incomingId);
   }, [incomingId, bookingId]);
 
-  const { data: status, isLoading: isChecking } = usePaymentStatus(bookingId);
+  /*
+   * A space is known from the URL, so it never needs the property endpoint.
+   * The `kind` fallback below still covers checkout sessions created before
+   * the backend started distinguishing the two — a guest mid-payment right
+   * now will still come back on the old `booking_id` parameter.
+   */
+  const { data: status, isLoading: isChecking } = usePaymentStatus(bookingId, {
+    enabled: !spaceBookingId,
+  });
+
+  /*
+   * The provider returns every guest to this one URL, property or space alike,
+   * so an id that turns out to belong to a space booking is handed straight to
+   * the page that knows how to present one — countdown, host approval and all.
+   * `replace` so Back does not bounce them here again.
+   */
+  useEffect(() => {
+    const isSpace = spaceBookingId || status?.kind === 'space';
+    if (isSpace && bookingId) {
+      navigate(paths.spaceBooking(bookingId), { replace: true });
+    }
+  }, [spaceBookingId, status?.kind, bookingId, navigate]);
   const { data: booking } = useBooking(bookingId);
   // Only needed to name the tax line; the amounts all come from the booking.
   const { data: property } = useProperty(booking?.propertyId);

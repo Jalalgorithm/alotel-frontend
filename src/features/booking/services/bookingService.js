@@ -206,7 +206,7 @@ const mockBookings = {
 
   async paymentStatus(bookingId) {
     await delay(400);
-    return { booking_id: bookingId, status: 'confirmed', payment_status: 'succeeded' };
+    return { booking_id: bookingId, status: 'confirmed', payment_status: 'succeeded', kind: 'property' };
   },
 
   async startIdentity(bookingId) {
@@ -393,9 +393,35 @@ const realBookings = {
   },
 
   /** Post-checkout reconciliation — also flips a paid booking to confirmed. */
+  /**
+   * Post-checkout status for whatever kind of booking this id belongs to.
+   *
+   * The provider sends every guest back to the same URL. `_create_stripe_checkout_session`
+   * is shared between property and space payments and always builds
+   * `PAYMENT_SUCCESS_URL?booking_id=<id>` — so a space booking's id arrives on
+   * the property success page, where `/bookings/success/` 404s and the page
+   * polls for ever.
+   *
+   * Rather than strand a guest who has already paid, a 404 here is retried
+   * against the space endpoint. The caller is told which kind it turned out to
+   * be so it can route accordingly. Fixing the redirect server-side would make
+   * this fallback dead code, which is the right end state.
+   */
   async paymentStatus(bookingId) {
-    const { data } = await apiClient.get('/bookings/success/', { params: { booking_id: bookingId } });
-    return data;
+    try {
+      const { data } = await apiClient.get('/bookings/success/', { params: { booking_id: bookingId } });
+      return { ...data, kind: 'property' };
+    } catch (error) {
+      if (error?.status !== 404) throw error;
+
+      const { data } = await apiClient.get(`/spaces/bookings/${bookingId}/payment-status/`);
+      return {
+        booking_id: data.space_booking_id,
+        status: data.status,
+        payment_status: data.payment_status ?? null,
+        kind: 'space',
+      };
+    }
   },
 
   /**

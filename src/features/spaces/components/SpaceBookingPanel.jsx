@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 import { Spinner } from '@/components/ui/Spinner';
 import { cn } from '@/utils/classNames';
-import { formatCurrency } from '@/utils/format';
+import { formatCurrency, formatDate } from '@/utils/format';
 import { selectIsAuthenticated, useAuthStore } from '@/stores/authStore';
 import { capacityCheck, rateSuffix } from '@/lib/spaceSchema';
 import { useSpaceAvailability, useSpaceQuote } from '../hooks/useSpaces';
@@ -79,6 +79,7 @@ export const SpaceBookingPanel = ({ space }) => {
   const isAuthenticated = useAuthStore(selectIsAuthenticated);
 
   const [date, setDate] = useState(today());
+  const [isCalendarOpen, setCalendarOpen] = useState(false);
   const [window, setWindow] = useState({ startTime: '', endTime: '' });
   const [layoutId, setLayoutId] = useState(space.layouts[0]?.id ?? '');
   const [guestCount, setGuestCount] = useState(1);
@@ -153,29 +154,41 @@ export const SpaceBookingPanel = ({ space }) => {
       </div>
 
       <div className="space-y-4 p-4">
-        <label className="block">
-          <span className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-muted">Date</span>
-          <div className="relative">
-            <CalendarDays
-              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-muted"
-              aria-hidden="true"
-            />
-            <input
-              type="date"
-              min={today()}
-              value={date}
-              onChange={(event) => setDate(event.target.value)}
-              className="h-10 w-full rounded-lg border border-line bg-surface pl-9 pr-3 text-[13px] text-ink focus:border-brand-600 focus:outline-none"
-            />
-          </div>
-        </label>
-
         {/*
-          The month view sits under the date field rather than replacing it:
-          typing a known date stays the fastest route, and browsing is what the
-          calendar is for. Both write to the same state.
+          The calendar is opened, not always shown. A month grid permanently
+          occupying the panel pushes the price and the book button below the
+          fold on a phone, and most guests arrive already knowing their date —
+          so the field reads as a summary and expands only when asked.
         */}
-        <SpaceMonthCalendar spaceId={space.id} value={date} onSelect={setDate} className="mt-2.5" />
+        <div>
+          <span className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-muted">Date</span>
+
+          <button
+            type="button"
+            onClick={() => setCalendarOpen((current) => !current)}
+            aria-expanded={isCalendarOpen}
+            aria-label={isCalendarOpen ? 'Close the calendar' : 'Open the calendar to choose a date'}
+            className="flex h-10 w-full items-center gap-2 rounded-lg border border-line bg-surface px-3 text-left transition-colors hover:border-brand-400"
+          >
+            <CalendarDays className="size-4 shrink-0 text-ink-muted" aria-hidden="true" />
+            <span className="min-w-0 flex-1 truncate text-[13px] text-ink">
+              {date ? formatDate(date) : 'Choose a date'}
+            </span>
+            <span className="shrink-0 text-[11.5px] font-medium text-brand-700">
+              {isCalendarOpen ? 'Close' : 'Change'}
+            </span>
+          </button>
+
+          {isCalendarOpen && (
+            <SpaceMonthCalendar
+              spaceId={space.id}
+              value={date}
+              onSelect={setDate}
+              onDone={() => setCalendarOpen(false)}
+              className="mt-2"
+            />
+          )}
+        </div>
 
         <div>
           <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-muted">

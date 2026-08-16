@@ -45,7 +45,7 @@ const STATE_STYLES = {
   past: 'cursor-not-allowed text-ink-muted/50',
 };
 
-export const SpaceMonthCalendar = ({ spaceId, value, onSelect, className }) => {
+export const SpaceMonthCalendar = ({ spaceId, value, onSelect, onDone, className }) => {
   const [cursor, setCursor] = useState(() => (value ? new Date(`${value}T00:00:00`) : new Date()));
 
   const from = iso(startOfMonth(cursor));
@@ -180,7 +180,8 @@ export const SpaceMonthCalendar = ({ spaceId, value, onSelect, className }) => {
             })}
       </div>
 
-      <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 border-t border-line pt-2.5 text-[10.5px] text-ink-muted">
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-line pt-2.5">
+      <ul className="flex flex-wrap gap-x-4 gap-y-1.5 text-[10.5px] text-ink-muted">
         <li className="inline-flex items-center gap-1.5">
           <span className="size-1.5 rounded-full bg-brand-600" aria-hidden="true" />
           Free
@@ -202,6 +203,22 @@ export const SpaceMonthCalendar = ({ spaceId, value, onSelect, className }) => {
           Closed
         </li>
       </ul>
+
+      {/*
+        Closing is explicit rather than automatic on selection: a guest often
+        wants to compare a few days before committing, and a panel that
+        vanished on the first tap would take that away.
+      */}
+      {onDone && (
+        <button
+          type="button"
+          onClick={onDone}
+          className="rounded-full bg-brand-700 px-4 py-1.5 text-[12px] font-semibold text-white transition-colors hover:bg-brand-800"
+        >
+          Done
+        </button>
+      )}
+      </div>
     </div>
   );
 };

@@ -23,6 +23,32 @@
     />
 
     <title>Alotel Spaces — Premium Stays, Professionally Managed</title>
+
+    <!--
+      Usercentrics cookie consent (supplied by Termageddon).
+
+      Loaded here rather than from a component because the banner has to appear
+      before React mounts — consent is asked for on arrival, not after the app
+      has already run. `uc-block.bundle.js` is Usercentrics' Smart Data
+      Protector: it holds back third-party scripts until the visitor consents.
+
+      Note for anyone debugging a missing Stripe modal or map: that blocking is
+      the point, and a visitor who has declined will see those features stay
+      inert until they change their answer through Privacy Settings in the
+      footer.
+    -->
+    <link rel="preconnect" href="//privacy-proxy.usercentrics.eu" />
+    <link rel="preload" href="//privacy-proxy.usercentrics.eu/latest/uc-block.bundle.js" as="script" />
+    <script type="application/javascript" src="https://privacy-proxy.usercentrics.eu/latest/uc-block.bundle.js"></script>
+    <script
+      id="usercentrics-cmp"
+      src="https://app.usercentrics.eu/browser-ui/latest/loader.js"
+      data-settings-id="U7jSXkZMXkDPaX"
+      async
+    ></script>
+    <script>
+      uc.setCustomTranslations('https://termageddon.ams3.cdn.digitaloceanspaces.com/translations/');
+    </script>
   </head>
   <body>
     <div id="root"></div>

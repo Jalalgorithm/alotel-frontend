@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Facebook, Instagram, Linkedin, Twitter } from 'lucide-react';
+import { Facebook, Instagram, Linkedin, Mail, MapPin, Phone, Twitter } from 'lucide-react';
 import { paths } from '@/routes/paths';
+import { CONTACT_CHANNELS, OFFICES } from '@/lib/companyContent';
 import { Logo } from './Logo';
 import { toast } from '@/stores/uiStore';
 
@@ -96,7 +97,7 @@ export const Footer = () => {
         </div>
 
         {/* Link columns */}
-        <div className="grid grid-cols-1 gap-10 py-10 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="grid grid-cols-1 gap-10 pb-8 pt-10 sm:grid-cols-2 lg:grid-cols-5">
           <div className="lg:pr-8">
             <Logo tone="light" />
             <p className="mt-4 max-w-xs text-[13px] leading-6 text-white/60">
@@ -137,6 +138,56 @@ export const Footer = () => {
           ))}
         </div>
 
+        {/* Offices and contact.
+            Sourced from `companyContent` rather than retyped, so an address
+            corrected on the About page can never go stale down here. */}
+        <div className="grid gap-8 border-t border-white/10 py-8 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="lg:col-span-2">
+            <h3 className="text-[13px] font-semibold uppercase tracking-wide text-white">EMEA Offices</h3>
+            <div className="mt-4 grid gap-6 sm:grid-cols-2">
+              {OFFICES.map((office) => (
+                <address key={office.id} className="not-italic">
+                  <p className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-white/50">
+                    <MapPin className="size-3" aria-hidden="true" />
+                    {office.region}
+                  </p>
+                  <p className="mt-1.5 text-[13px] leading-6 text-white/60">
+                    {office.lines.map((line) => (
+                      <span key={line} className="block">
+                        {line}
+                      </span>
+                    ))}
+                  </p>
+                </address>
+              ))}
+            </div>
+          </div>
+
+          <div className="lg:col-span-2">
+            <h3 className="text-[13px] font-semibold uppercase tracking-wide text-white">Contact</h3>
+            <ul className="mt-4 space-y-3">
+              {CONTACT_CHANNELS.map((channel) => (
+                <li key={channel.id}>
+                  <a
+                    href={channel.href}
+                    className="inline-flex items-center gap-2 text-[13px] text-white/60 transition-colors hover:text-white"
+                  >
+                    {channel.id === 'phone' ? (
+                      <Phone className="size-3.5 shrink-0" aria-hidden="true" />
+                    ) : (
+                      <Mail className="size-3.5 shrink-0" aria-hidden="true" />
+                    )}
+                    <span>
+                      <span className="text-white/40">{channel.label}: </span>
+                      {channel.value}
+                    </span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+
         {/* Legal strip */}
         <div className="flex flex-col gap-3 border-t border-white/10 pt-6 text-[12px] text-white/50 sm:flex-row sm:items-center sm:justify-between">
           <p>© {new Date().getFullYear()} Alotel Spaces. All rights reserved.</p>
@@ -150,6 +201,21 @@ export const Footer = () => {
             <Link to={paths.cookies} className="py-1 transition-colors hover:text-white">
               Cookie Policy
             </Link>
+            {/*
+              Reopens the Usercentrics consent banner. The script is loaded from
+              index.html and defines `UC_UI` on the window; if a blocker stopped
+              it, the guard keeps this from throwing on click rather than
+              hiding the control — a consent link that vanishes is worse than
+              one that does nothing.
+            */}
+            <button
+              type="button"
+              id="usercentrics-psl"
+              onClick={() => window.UC_UI?.showSecondLayer?.()}
+              className="py-1 text-left transition-colors hover:text-white"
+            >
+              Privacy Settings
+            </button>
           </div>
         </div>
       </div>

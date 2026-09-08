@@ -13,10 +13,9 @@ import newYorkImage from '@/assets/images/destinations/new-york.jpg';
 import lagosImage from '@/assets/images/destinations/lagos.jpg';
 import parisImage from '@/assets/images/destinations/paris.jpg';
 
-// Testimonial portraits — bundled for the same reason as the destinations.
+// Portrait for the mock signed-in guest. The other two were only ever used by
+// the invented homepage testimonials and went with them.
 import eleanorAvatar from '@/assets/images/avatars/eleanor.jpg';
-import marcusAvatar from '@/assets/images/avatars/marcus.jpg';
-import amaraAvatar from '@/assets/images/avatars/amara.jpg';
 
 /**
  * Seed data for the in-browser mock backend.
@@ -396,66 +395,17 @@ export const searchFilters = [
 /* Landing page content                                                        */
 /* -------------------------------------------------------------------------- */
 
-export const testimonials = [
-  {
-    id: 't1',
-    name: 'Eleanor Thompson.',
-    stay: 'Stayed at the Barcelona Loft',
-    rating: 5,
-    avatar: eleanorAvatar,
-    quote:
-      'The attention to detail at the Barcelona Loft was unmatched. It felt like a 5-star hotel with the privacy of a home.',
-  },
-  {
-    id: 't2',
-    name: 'Marcus Chen.',
-    stay: 'Stayed at The Azure Palm',
-    rating: 5,
-    avatar: marcusAvatar,
-    quote:
-      'As a business traveler, the seamless check-in and reliable high-speed internet in Dubai were critical. Exceptional service.',
-  },
-  {
-    id: 't3',
-    name: 'Amina Okafor.',
-    stay: 'Stayed at the Victoria Sanctuary',
-    rating: 5,
-    avatar: amaraAvatar,
-    quote:
-      'We found a beautiful apartment in 4 days — and not one agent issue. Everything was transparent and safe.',
-  },
-];
-
-export const trustStats = [
-  { id: 'rating', value: '4.9', label: 'Average Rating', stars: true },
-  { id: 'guests', value: '100K+', label: 'Verified Guests' },
-  { id: 'moveins', value: '5,200', label: 'Move-Ins' },
-  { id: 'activity', value: 'Last 60 Days', label: 'Recent Activity' },
-];
-
-export const valueProps = [
-  {
-    id: 'hospitality',
-    icon: 'gem',
-    title: 'Premium Hospitality',
-    description:
-      'Personalized concierge services and luxury amenities tailored to your lifestyle and travel needs.',
-  },
-  {
-    id: 'compliance',
-    icon: 'clipboard-check',
-    title: 'Compliance-First',
-    description:
-      'Every property is verified against local regulations, safety standards, and hospitality requirements.',
-  },
-  {
-    id: 'reach',
-    icon: 'globe',
-    title: 'Global Reach',
-    description:
-      "A curated collection of exclusive properties in the world's most desirable business and leisure hubs.",
-  },
-];
+/*
+ * Testimonials, trust statistics and value propositions used to live here.
+ *
+ * They were ours, not the client's: three invented guest quotes, and headline
+ * figures ("100K+ Verified Guests", "5,200 Move-Ins") that no one could
+ * substantiate. The client's Section 5 brief marks real testimonials as
+ * pending a signed release per guest and the statistics as pending Finance
+ * verification, so the homepage now reads from `lib/homeContent` — where the
+ * testimonial list is deliberately empty and the statistics are replaced by
+ * claims that are true today.
+ */
 
 export const propertyAssurances = [
   {

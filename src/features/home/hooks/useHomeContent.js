@@ -19,9 +19,8 @@ export const useTestimonials = () =>
     staleTime: MARKETING_STALE_TIME,
   });
 
-export const useTrustStats = () =>
-  useQuery({
-    queryKey: queryKeys.home.stats(),
-    queryFn: homeService.getTrustStats,
-    staleTime: MARKETING_STALE_TIME,
-  });
+/*
+ * `useTrustStats` is gone with the four placeholder figures it fetched. The
+ * homepage now states four things that are true rather than four numbers
+ * nobody had verified — see `ASSURANCES` in `lib/homeContent`.
+ */

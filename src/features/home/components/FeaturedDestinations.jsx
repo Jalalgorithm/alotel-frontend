@@ -6,13 +6,21 @@ import { SectionHeading } from '@/components/shared/SectionHeading';
 import { useDestinations } from '../hooks/useHomeContent';
 import { paths } from '@/routes/paths';
 
-/** "Featured Destinations" — photo tiles with the city name and listing count. */
+/**
+ * "Featured Destinations" — the eight cities in scope.
+ *
+ * Each tile carries the client's own Tile Copy line rather than a listing
+ * count. The count that used to sit here was a fixture number invented per
+ * city — "60 Properties", "100 Properties" — which was both untrue and the
+ * least interesting thing the tile could say. The copy is the same string the
+ * city guide opens with, so the two can never disagree.
+ */
 export const FeaturedDestinations = () => {
   const { data: destinations = [], isLoading } = useDestinations(8);
 
   return (
     <section className="shell py-14 sm:py-16">
-      <SectionHeading title="Featured Destinations" subtitle="Explore our most popular region" />
+      <SectionHeading title="Featured Destinations" subtitle="Eight cities, each known properly" />
 
       <div className="mt-7 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
         {isLoading
@@ -25,9 +33,15 @@ export const FeaturedDestinations = () => {
                 to={paths.destinationDetail(destination.id)}
                 className="group relative overflow-hidden rounded-card"
               >
+                {/*
+                  Decorative: the city and country are written across the tile
+                  immediately below. Naming the image as well made a screen
+                  reader — and the gradient fallback, which prints its alt text
+                  as visually-hidden copy — announce "Malaga, Spain" twice.
+                */}
                 <Image
                   src={destination.image}
-                  alt={`${destination.city}, ${destination.country}`}
+                  alt=""
                   wrapperClassName="aspect-4/5 w-full"
                   className="transition-transform duration-500 group-hover:scale-105"
                 />
@@ -41,7 +55,7 @@ export const FeaturedDestinations = () => {
                       {destination.code}
                     </span>
                   </p>
-                  <p className="mt-0.5 text-[11px] text-white/75">{destination.properties} Properties</p>
+                  <p className="mt-1 text-[11.5px] italic leading-4 text-white/80">{destination.tagline}</p>
                 </div>
               </Link>
             ))}

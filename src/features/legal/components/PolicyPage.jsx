@@ -42,7 +42,12 @@ export const PolicyPage = ({ policyId }) => {
         ))}
       </nav>
 
-      <div className="mt-8 rounded-card border border-line bg-surface p-5 shadow-card sm:p-7">
+      {/*
+        No card around the document any more. The policy now carries its own
+        section cards and a pinned contents column, and wrapping that in a
+        second panel produced boxes inside boxes.
+      */}
+      <div className="mt-8">
         <PolicyEmbed policyKey={policy.key} name={policy.title} />
       </div>
 

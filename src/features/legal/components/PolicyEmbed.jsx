@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
-import { AlertTriangle, Loader2 } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { AlertTriangle, ChevronsDownUp, ChevronsUpDown } from 'lucide-react';
+import { BrandLoader } from '@/components/shared/BrandLoader';
 import { cn } from '@/utils/classNames';
 
 const TERMAGEDDON_API = 'https://policies.termageddon.com/api/policy/';
@@ -24,9 +25,43 @@ const TERMAGEDDON_API = 'https://policies.termageddon.com/api/policy/';
  *
  * @param {{ policyKey?: string, name: string }} props
  */
+
+/**
+ * Termageddon ships a <style> block scoped to `#<policyKey>` — a full reset
+ * plus its own grey accordion chrome. Two problems with keeping it: an ID
+ * selector outranks anything we can write with a class, so our typography
+ * never applied; and the chrome it paints (1px #aaa boxes) is exactly what we
+ * are replacing. Removing it hands the whole document to `.policy-content`.
+ *
+ * Nothing functional is lost. The accordions are native <details>/<summary>,
+ * which open and close without any CSS at all.
+ */
+const stripVendorStyles = (root) => {
+  root.querySelectorAll('style').forEach((node) => node.remove());
+};
+
+/**
+ * Lift the table of contents out of the article so it can sit in its own
+ * sticky column. Termageddon offers a floating-TOC layout server-side, but it
+ * is not on for these policies, and moving one node is cheaper than depending
+ * on a setting in someone else's dashboard.
+ */
+const extractToc = (root) => {
+  const toc = root.querySelector('.tg-toc');
+  if (!toc) return null;
+
+  root.querySelectorAll('.tg-toc-divider').forEach((node) => node.remove());
+  toc.remove();
+  return toc;
+};
+
 export const PolicyEmbed = ({ policyKey, name, className }) => {
   const containerRef = useRef(null);
+  const tocRef = useRef(null);
   const [state, setState] = useState(policyKey ? 'loading' : 'unconfigured');
+  const [hasToc, setHasToc] = useState(false);
+  const [allOpen, setAllOpen] = useState(false);
+  const [sectionCount, setSectionCount] = useState(0);
 
   useEffect(() => {
     if (!policyKey) {
@@ -59,8 +94,20 @@ export const PolicyEmbed = ({ policyKey, name, className }) => {
       })
       .then((html) => {
         if (controller.signal.aborted) return;
+        const container = containerRef.current;
+        if (!container) return;
+
         // The response is a policy document from Termageddon, not user input.
-        if (containerRef.current) containerRef.current.innerHTML = html;
+        container.innerHTML = html;
+        stripVendorStyles(container);
+
+        const toc = extractToc(container);
+        if (toc && tocRef.current) {
+          tocRef.current.replaceChildren(toc);
+          setHasToc(true);
+        }
+
+        setSectionCount(container.querySelectorAll('details.accordion').length);
         setState('ready');
       })
       .catch((error) => {
@@ -71,17 +118,59 @@ export const PolicyEmbed = ({ policyKey, name, className }) => {
     return () => controller.abort();
   }, [policyKey]);
 
+  const setAll = useCallback((open) => {
+    containerRef.current?.querySelectorAll('details').forEach((node) => {
+      node.open = open;
+    });
+    setAllOpen(open);
+  }, []);
+
+  /*
+   * A contents link points at a heading that may be inside a collapsed
+   * section, where the browser will not scroll to it. Open its ancestors
+   * first, then let the anchor do its job.
+   */
+  useEffect(() => {
+    if (state !== 'ready') return undefined;
+
+    const onClick = (event) => {
+      const link = event.target.closest('a[href^="#"]');
+      if (!link) return;
+
+      const id = decodeURIComponent(link.getAttribute('href').slice(1));
+      const target = containerRef.current?.querySelector(`[id="${CSS.escape(id)}"]`);
+      if (!target) return;
+
+      event.preventDefault();
+      let node = target.closest('details');
+      while (node) {
+        node.open = true;
+        node = node.parentElement?.closest('details');
+      }
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+
+    const toc = tocRef.current;
+    const body = containerRef.current;
+    toc?.addEventListener('click', onClick);
+    body?.addEventListener('click', onClick);
+    return () => {
+      toc?.removeEventListener('click', onClick);
+      body?.removeEventListener('click', onClick);
+    };
+  }, [state]);
+
   return (
-    <div className={cn('min-h-[40vh]', className)}>
+    <div className={className}>
       {state === 'loading' && (
-        <p className="inline-flex items-center gap-2 text-[13px] text-ink-muted">
-          <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-          Loading the current {name.toLowerCase()}…
-        </p>
+        <div className="flex flex-col items-center gap-3 py-16">
+          <BrandLoader size="md" label={`Loading the ${name.toLowerCase()}`} />
+          <p className="text-[13px] text-ink-muted">Fetching the current {name.toLowerCase()}…</p>
+        </div>
       )}
 
       {state === 'unconfigured' && (
-        <div className="rounded-card border border-line bg-line-soft p-5">
+        <div className="rounded-card border border-line bg-canvas p-5">
           <p className="inline-flex items-center gap-2 text-[13px] font-semibold text-ink">
             <AlertTriangle className="size-4 text-gold" aria-hidden="true" />
             {name} not published yet
@@ -109,11 +198,43 @@ export const PolicyEmbed = ({ policyKey, name, className }) => {
         </div>
       )}
 
-      {/*
-        Termageddon ships unstyled markup, so `policy-content` in the stylesheet
-        gives its headings, lists and tables the site's typography.
-      */}
-      <div ref={containerRef} className={cn('policy-content', state !== 'ready' && 'hidden')} />
+      <div className={cn('gap-10 lg:grid lg:grid-cols-[240px_minmax(0,1fr)]', state !== 'ready' && 'hidden')}>
+        {/* Contents, lifted out of the article and pinned beside it. */}
+        <aside className={cn('mb-8 lg:mb-0', !hasToc && 'hidden')}>
+          <div className="policy-toc lg:sticky lg:top-24" ref={tocRef} />
+        </aside>
+
+        {/* The document gets its own sheet of white. Legal prose set directly
+            on the tinted canvas reads as washed out over this many words. */}
+        <div
+          className={cn(
+            'rounded-card border border-line bg-surface p-5 shadow-card sm:p-8',
+            !hasToc && 'lg:col-span-2',
+          )}
+        >
+          {sectionCount > 2 && (
+            <div className="mb-5 flex items-center justify-between gap-3 border-b border-line pb-3">
+              <p className="text-[12px] text-ink-muted">
+                {sectionCount} sections
+              </p>
+              <button
+                type="button"
+                onClick={() => setAll(!allOpen)}
+                className="inline-flex items-center gap-1.5 rounded-full border border-line px-3 py-1.5 text-[12px] font-medium text-ink-soft transition-colors hover:border-brand-400 hover:text-brand-700"
+              >
+                {allOpen ? (
+                  <ChevronsDownUp className="size-3.5" aria-hidden="true" />
+                ) : (
+                  <ChevronsUpDown className="size-3.5" aria-hidden="true" />
+                )}
+                {allOpen ? 'Collapse all' : 'Expand all'}
+              </button>
+            </div>
+          )}
+
+          <div ref={containerRef} className="policy-content" />
+        </div>
+      </div>
     </div>
   );
 };

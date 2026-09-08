@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { bookingService } from '../services/bookingService';
 import { queryKeys } from '@/lib/queryKeys';
@@ -114,8 +115,10 @@ export const useInitiatePayment = () => {
  * Stripe returns the guest before its webhook has necessarily landed, so the
  * success page polls this until the booking leaves `pending_payment`.
  */
-export const usePaymentStatus = (bookingId, { enabled = true } = {}) =>
-  useQuery({
+export const usePaymentStatus = (bookingId, { enabled = true } = {}) => {
+  const queryClient = useQueryClient();
+
+  const query = useQuery({
     queryKey: queryKeys.bookings.paymentStatus(bookingId),
     queryFn: () => bookingService.getPaymentStatus(bookingId),
     enabled: Boolean(bookingId) && enabled,
@@ -126,6 +129,33 @@ export const usePaymentStatus = (bookingId, { enabled = true } = {}) =>
     },
     retry: false,
   });
+
+  /*
+   * Drop the rest of the booking cache the moment payment settles.
+   *
+   * The booking was fetched seconds earlier, while it was still
+   * `pending_payment`, and the client holds every query fresh for two minutes.
+   * So without this the dashboard and the booking detail keep serving that
+   * stale copy — a guest who has just paid sees "Payment pending" until they
+   * reload the browser hard enough to drop the cache entirely, which is
+   * exactly what was being reported.
+   *
+   * The ref makes this fire once per booking rather than on every poll tick:
+   * invalidating `bookings.all` refetches this very query, and an unguarded
+   * effect would chase its own tail.
+   */
+  const status = query.data?.status;
+  const settled = Boolean(status) && status !== 'pending_payment';
+  const flushedFor = useRef(null);
+
+  useEffect(() => {
+    if (!settled || !bookingId || flushedFor.current === bookingId) return;
+    flushedFor.current = bookingId;
+    queryClient.invalidateQueries({ queryKey: queryKeys.bookings.all });
+  }, [settled, bookingId, queryClient]);
+
+  return query;
+};
 
 /**
  * Country tax rules, used only to name the tax line in a quote.

@@ -1,13 +1,17 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
+  Accessibility,
   Building2,
   CalendarCheck,
   CalendarX,
   CreditCard,
   KeyRound,
+  LifeBuoy,
+  Receipt,
   Mail,
   MessageSquare,
+  Phone,
   Presentation,
   Search,
   ShieldCheck,
@@ -40,9 +44,12 @@ import { paths } from '@/routes/paths';
 const TOPIC_ICONS = {
   CalendarCheck,
   CreditCard,
-  ShieldCheck,
-  KeyRound,
   CalendarX,
+  Receipt,
+  KeyRound,
+  Accessibility,
+  LifeBuoy,
+  ShieldCheck,
   Presentation,
   Building2,
 };
@@ -299,7 +306,9 @@ export const SupportPage = () => {
               {CONTACT_CHANNELS.map((channel) => (
                 <li key={channel.id} className="flex items-start gap-2.5">
                   <span className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-lg bg-brand-50 text-brand-700">
-                    {channel.id === 'email' ? (
+                    {channel.id === 'phone' ? (
+                      <Phone className="size-3.5" aria-hidden="true" />
+                    ) : channel.href ? (
                       <Mail className="size-3.5" aria-hidden="true" />
                     ) : (
                       <MessageSquare className="size-3.5" aria-hidden="true" />
@@ -309,7 +318,18 @@ export const SupportPage = () => {
                     <p className="text-[10px] font-semibold uppercase tracking-[0.07em] text-ink-muted">
                       {channel.label}
                     </p>
-                    <p className="mt-0.5 text-[12.5px] font-medium text-ink">{channel.value}</p>
+                    {/* An address or a number is only useful if it can be
+                        acted on — a channel without an `href` stays plain. */}
+                    {channel.href ? (
+                      <a
+                        href={channel.href}
+                        className="mt-0.5 block text-[12.5px] font-medium text-brand-700 hover:underline"
+                      >
+                        {channel.value}
+                      </a>
+                    ) : (
+                      <p className="mt-0.5 text-[12.5px] font-medium text-ink">{channel.value}</p>
+                    )}
                     <p className="text-[11px] text-ink-muted">{channel.note}</p>
                   </div>
                 </li>

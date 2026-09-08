@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { spaceService } from '../services/spaceService';
 import { queryKeys } from '@/lib/queryKeys';
@@ -134,8 +135,10 @@ export const useBookSpace = (spaceId) => {
  * was previously the reason a paid space booking sat on `pending_payment`
  * indefinitely.
  */
-export const useSpacePaymentStatus = (bookingId, { enabled = true } = {}) =>
-  useQuery({
+export const useSpacePaymentStatus = (bookingId, { enabled = true } = {}) => {
+  const queryClient = useQueryClient();
+
+  const query = useQuery({
     queryKey: queryKeys.spaces.paymentStatus(bookingId),
     queryFn: () => spaceService.getSpacePaymentStatus(bookingId),
     enabled: Boolean(bookingId) && enabled,
@@ -145,6 +148,23 @@ export const useSpacePaymentStatus = (bookingId, { enabled = true } = {}) =>
     },
     retry: false,
   });
+
+  /* Same reasoning as the residence hook: the booking and the guest's list
+     were both cached as `pending_payment` before the webhook landed, and stay
+     fresh for two minutes. Flushed once per booking, since invalidating the
+     `spaces` prefix refetches this query too. */
+  const status = query.data?.status;
+  const settled = Boolean(status) && status !== 'pending_payment';
+  const flushedFor = useRef(null);
+
+  useEffect(() => {
+    if (!settled || !bookingId || flushedFor.current === bookingId) return;
+    flushedFor.current = bookingId;
+    queryClient.invalidateQueries({ queryKey: queryKeys.spaces.all() });
+  }, [settled, bookingId, queryClient]);
+
+  return query;
+};
 
 export const useCancelSpaceBooking = () => {
   const queryClient = useQueryClient();

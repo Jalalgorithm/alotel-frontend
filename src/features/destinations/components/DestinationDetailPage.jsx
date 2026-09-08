@@ -154,9 +154,14 @@ export const DestinationDetailPage = () => {
                   <article key={area.name} className="rounded-card border border-line bg-surface p-4 shadow-card">
                     <h3 className="font-display text-[15px] font-semibold text-ink">{area.name}</h3>
                     <p className="mt-1.5 text-[12.5px] leading-5 text-ink-soft">{area.note}</p>
-                    <p className="mt-3 border-t border-line pt-2 text-[11px] text-ink-muted">
-                      <span className="font-semibold uppercase tracking-[0.06em]">Suits</span> · {area.suits}
-                    </p>
+                    {/* The client's guides describe each area in one line and
+                        do not say who it suits, so the strip only appears
+                        where that has actually been written. */}
+                    {area.suits && (
+                      <p className="mt-3 border-t border-line pt-2 text-[11px] text-ink-muted">
+                        <span className="font-semibold uppercase tracking-[0.06em]">Suits</span> · {area.suits}
+                      </p>
+                    )}
                   </article>
                 ))}
               </div>

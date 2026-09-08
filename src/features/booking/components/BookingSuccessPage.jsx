@@ -187,7 +187,14 @@ export const BookingSuccessPage = () => {
             </>
           )}
 
-          {isSettled && !isConfirmed && (
+          {/*
+            `!isPaid`, not `!isConfirmed`. A booking awaiting host approval or
+            identity verification has been paid for but is not yet confirmed,
+            so it satisfied both this branch and "Payment received" above — the
+            guest was told their payment had gone through and had not, one
+            under the other, on the same screen.
+          */}
+          {isSettled && !isPaid && (
             <>
               <span className="mx-auto flex size-14 items-center justify-center rounded-full bg-warn-soft">
                 <TriangleAlert className="size-7 text-warn" aria-hidden="true" />

@@ -222,59 +222,479 @@
 }
 
 /* -------------------------------------------------------------------------- */
+/* Brand loader — the mark drawing itself                                     */
+/* -------------------------------------------------------------------------- */
+
+/*
+ * Every stroked shape carries `pathLength="1"`, so one dash length covers any
+ * geometry. The offset runs 1 -> 0 -> -1: the stroke draws itself on, then
+ * continues off the far end, which loops without a visible snap back.
+ */
+@keyframes brand-trace {
+  0% {
+    stroke-dashoffset: 1;
+    opacity: 0.15;
+  }
+  25% {
+    opacity: 1;
+  }
+  50% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  75% {
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: -1;
+    opacity: 0.15;
+  }
+}
+
+@keyframes brand-dot {
+  0%,
+  100% {
+    opacity: 0.15;
+    transform: scale(0.7);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes brand-halo {
+  0%,
+  100% {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+
+.brand-loader-shape {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: brand-trace 1.9s ease-in-out infinite;
+}
+
+.brand-loader-dot {
+  transform-origin: center;
+  animation: brand-dot 1.9s ease-in-out infinite;
+}
+
+.brand-loader-halo {
+  animation: brand-halo 1.9s ease-in-out infinite;
+}
+
+/*
+ * Reduced motion gets the finished mark, not a frozen half-drawn one. The
+ * global rule below collapses the animation to nothing, which would otherwise
+ * leave every stroke sitting at its starting offset of 1 — invisible.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .brand-loader-shape {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+
+  .brand-loader-dot,
+  .brand-loader-halo {
+    opacity: 1;
+  }
+}
+
+html[data-motion='reduced'] .brand-loader-shape {
+  stroke-dashoffset: 0;
+  opacity: 1;
+}
+
+html[data-motion='reduced'] .brand-loader-dot,
+html[data-motion='reduced'] .brand-loader-halo {
+  opacity: 1;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Accessibility preferences                                                  */
+/* -------------------------------------------------------------------------- */
+
+/*
+ * Driven by the widget at the bottom of every page, which stamps `data-*`
+ * attributes on <html>. Keeping the whole mechanism here means no component
+ * has to know a preference exists.
+ */
+
+/*
+ * Text size scales the page rather than a root font size. The design sets type
+ * in px throughout — lifted straight from Figma — so `html { font-size }` would
+ * move nothing at all. `zoom` enlarges the text and the boxes around it in step,
+ * which is what someone asking for larger text actually wants, and it is the
+ * one property that reflows rather than clipping (a transform would not).
+ */
+html[data-text-size='large'] body {
+  zoom: 1.12;
+}
+
+html[data-text-size='xlarge'] body {
+  zoom: 1.25;
+}
+
+/*
+ * High contrast darkens the two recessive ink steps and firms up every border.
+ * The soft greys are tuned for a calm page at normal sight; at low vision they
+ * are the first thing to disappear, so they collapse toward the primary ink
+ * rather than being replaced with an unrelated palette.
+ */
+html[data-contrast='high'] {
+  --color-ink: #000000;
+  --color-ink-soft: #22262b;
+  --color-ink-muted: #3a4048;
+  --color-line: #7d8a83;
+  --color-canvas: #ffffff;
+}
+
+/* Links stop relying on colour alone once contrast is on. Buttons-as-links and
+   anything whose content is a mark rather than a word are left alone — an
+   underlined logo or social icon reads as a rendering fault, not an
+   affordance. */
+html[data-contrast='high']
+  a:not([class*='rounded-full']):not([class*='bg-']):not(:has(svg)):not(:has(img)) {
+  text-decoration: underline;
+}
+
+html[data-contrast='high'] :where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline-width: 3px;
+  outline-color: #000000;
+}
+
+/* An explicit "reduce motion" choice, which also has to win over an OS that
+   says otherwise — hence the same !important as the media query above. */
+html[data-motion='reduced'] *,
+html[data-motion='reduced'] *::before,
+html[data-motion='reduced'] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+html[data-motion='reduced'] {
+  scroll-behavior: auto;
+}
+
+/* And the inverse: a guest who has explicitly asked for motion keeps it, even
+   on a system set to reduce. The media query above is otherwise unopposable. */
+@media (prefers-reduced-motion: reduce) {
+  html[data-motion='full'] *,
+  html[data-motion='full'] *::before,
+  html[data-motion='full'] *::after {
+    animation-duration: revert !important;
+    animation-iteration-count: revert !important;
+    transition-duration: revert !important;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
 /* Termageddon policy content                                                 */
 /* -------------------------------------------------------------------------- */
 
 /*
- * Termageddon returns semantic but unstyled HTML. Tailwind's preflight strips
- * default margins and list markers, so without this the policy arrives as one
- * undifferentiated wall of text. These rules are scoped to `.policy-content`
- * so they can never leak into the rest of the app.
+ * Termageddon returns semantic markup wrapped in its own <style> block — a
+ * reset plus grey 1px accordion chrome, all scoped to `#<policyKey>`. That ID
+ * outranks any class we could write, so `PolicyEmbed` strips the block on
+ * insert and everything below takes over. Tailwind's preflight has already
+ * removed default margins and list markers, so every one of them is restated
+ * here rather than inherited.
+ *
+ * The target is a document someone can actually read: a comfortable measure,
+ * real vertical rhythm, sections that look like sections, and tables that
+ * scroll instead of shoving the page sideways.
  */
+
 .policy-content {
   color: var(--color-ink-soft);
-  font-size: 13.5px;
-  line-height: 1.75;
+  font-size: 14.5px;
+  line-height: 1.8;
+  /* Roughly 70 characters. Legal prose is long; an unbounded measure makes it
+     unreadable regardless of how good the typography is. */
+  max-width: 68ch;
 }
+
+/* ---- Headings ---------------------------------------------------------- */
 
 .policy-content h1,
 .policy-content h2,
 .policy-content h3,
-.policy-content h4 {
+.policy-content h4,
+.policy-content h5 {
+  font-family: var(--font-display);
   color: var(--color-ink);
   font-weight: 600;
-  line-height: 1.35;
-  margin-top: 1.75em;
-  margin-bottom: 0.5em;
+  letter-spacing: -0.012em;
+  line-height: 1.3;
+  scroll-margin-top: 6rem;
 }
 
-.policy-content h1 { font-size: 1.5em; }
-.policy-content h2 { font-size: 1.3em; }
-.policy-content h3 { font-size: 1.12em; }
+.policy-content h1,
+.policy-content h2 {
+  font-size: 1.45em;
+  margin-top: 2.2em;
+  margin-bottom: 0.6em;
+}
 
-.policy-content p,
-.policy-content ul,
-.policy-content ol,
-.policy-content table {
-  margin-bottom: 1em;
+/*
+ * Every policy opens with its own title as the article's first heading —
+ * "Privacy Policy", "Terms of Service", and so on — which the page header two
+ * inches above already says. One of them has to go, and it is not ours.
+ *
+ * Scoped to the first child specifically: `.tpt-section-heading` is on all
+ * twenty-odd section headings, so an unscoped rule would erase the document.
+ */
+.policy-content article > h2.tpt-section-heading:first-child {
+  display: none;
+}
+
+/* Termageddon parks a visually-hidden "Introduction" heading offscreen with
+   inline styles. Leave it alone — it is there for screen readers. */
+
+.policy-content h3 {
+  font-size: 1.12em;
+  margin-top: 1.6em;
+  margin-bottom: 0.45em;
+}
+
+.policy-content h4 {
+  font-size: 1em;
+  margin-top: 1.4em;
+  margin-bottom: 0.35em;
+  color: var(--color-ink);
+}
+
+/* ---- Body -------------------------------------------------------------- */
+
+.policy-content p {
+  margin-bottom: 1.05em;
 }
 
 .policy-content ul,
 .policy-content ol {
-  padding-left: 1.35em;
+  margin-bottom: 1.05em;
+  padding-left: 1.3em;
 }
 
-.policy-content ul { list-style: disc; }
-.policy-content ol { list-style: decimal; }
-.policy-content li { margin-bottom: 0.35em; }
+.policy-content ul {
+  list-style: disc;
+}
+
+.policy-content ol {
+  list-style: decimal;
+}
+
+.policy-content li {
+  margin-bottom: 0.4em;
+  padding-left: 0.15em;
+}
+
+.policy-content li::marker {
+  color: var(--color-brand-400);
+}
+
+.policy-content strong,
+.policy-content b {
+  color: var(--color-ink);
+  font-weight: 600;
+}
 
 .policy-content a {
   color: var(--color-brand-700);
   text-decoration: underline;
+  text-decoration-thickness: 1px;
   text-underline-offset: 2px;
+  transition: color 0.15s;
 }
 
-.policy-content strong { color: var(--color-ink); font-weight: 600; }
+.policy-content a:hover {
+  color: var(--color-brand-800);
+}
+
+.policy-content hr {
+  height: 1px;
+  border: 0;
+  background: var(--color-line);
+  margin: 2em 0;
+}
+
+/* "Last updated: ..." — a fact people scan for first, so it reads as a chip
+   rather than a line of body copy. */
+.policy-content .tg-last-updated-date {
+  display: inline-block;
+  margin-bottom: 1.5em;
+  border-radius: 999px;
+  background: var(--color-brand-50);
+  color: var(--color-brand-800);
+  padding: 0.3em 0.85em;
+  font-size: 0.82em;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+/* ---- Sections (native <details>) --------------------------------------- */
+
+/*
+ * Termageddon renders each numbered section as a <details>. Its own styling is
+ * a stack of grey boxes; these are cards that separate cleanly, with a chevron
+ * that turns. `list-style: none` plus the ::-webkit- rule removes the native
+ * disclosure triangle in every engine.
+ */
+.policy-content .accordions {
+  margin: 1.5em 0;
+  border-top: 1px solid var(--color-line);
+}
+
+/*
+ * Hairline rows, not cards. The document already sits on its own sheet of
+ * white; boxing each of thirty-two sections inside that produced panels within
+ * panels and made a long policy look longer.
+ */
+.policy-content details.accordion {
+  border-bottom: 1px solid var(--color-line);
+}
+
+.policy-content summary.accordion-summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 0.8em 0.2em;
+  display: flex;
+  align-items: center;
+  gap: 0.7em;
+  font-family: var(--font-display);
+  font-weight: 600;
+  color: var(--color-ink);
+  transition: background-color 0.15s;
+}
+
+.policy-content summary.accordion-summary::-webkit-details-marker {
+  display: none;
+}
+
+.policy-content summary.accordion-summary:hover {
+  color: var(--color-brand-700);
+}
+
+.policy-content summary.accordion-summary:focus-visible {
+  outline: 2px solid var(--color-brand-600);
+  outline-offset: -2px;
+}
+
+/* A chevron drawn in CSS rather than an inlined icon — nothing in this subtree
+   is ours to put an element into. */
+.policy-content summary.accordion-summary::after {
+  content: '';
+  flex: 0 0 auto;
+  margin-left: auto;
+  width: 0.5em;
+  height: 0.5em;
+  border-right: 2px solid var(--color-brand-600);
+  border-bottom: 2px solid var(--color-brand-600);
+  transform: rotate(45deg) translate(-0.1em, -0.1em);
+  transition: transform 0.2s ease;
+}
+
+.policy-content details.accordion[open] > summary.accordion-summary::after {
+  transform: rotate(225deg) translate(-0.1em, -0.1em);
+}
+
+.policy-content .accordion-heading {
+  display: inline;
+  margin: 0;
+  font-size: 0.98em;
+}
+
+.policy-content .accordion-heading h3,
+.policy-content .accordion-heading h4 {
+  display: inline;
+  margin: 0;
+  font-size: inherit;
+}
+
+.policy-content .accordion-content {
+  padding: 0 0.2em 1.1em;
+}
+
+.policy-content .accordion-content > *:first-child {
+  margin-top: 0;
+}
+
+.policy-content .accordion-content > *:last-child {
+  margin-bottom: 0;
+}
+
+.policy-content .accordion-section + .accordion-section {
+  margin-top: 1.2em;
+}
+
+/* ---- Contents ---------------------------------------------------------- */
+
+/*
+ * Lifted out of the article by `PolicyEmbed` and pinned in its own column, so
+ * a forty-section privacy policy is navigable rather than a scroll.
+ */
+.policy-toc .tg-toc {
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  padding: 1.1rem 1.15rem;
+  box-shadow: var(--shadow-card);
+  max-height: calc(100vh - 8rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.policy-toc .tg-toc-heading {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-ink-muted);
+  margin-bottom: 0.7rem;
+}
+
+.policy-toc .tg-toc-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.policy-toc .tg-toc-item {
+  margin: 0;
+}
+
+.policy-toc .tg-toc-link {
+  display: block;
+  border-left: 2px solid transparent;
+  padding: 0.3rem 0 0.3rem 0.7rem;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--color-ink-soft);
+  text-decoration: none;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
+}
+
+.policy-toc .tg-toc-link:hover {
+  color: var(--color-brand-700);
+  border-left-color: var(--color-brand-500);
+}
+
+/* ---- Tables ------------------------------------------------------------ */
 
 /* Policies carry wide comparison tables; let them scroll rather than push the
    page sideways on a phone. */
@@ -283,18 +703,39 @@
   width: 100%;
   overflow-x: auto;
   border-collapse: collapse;
+  border: 1px solid var(--color-line);
+  border-radius: 0.6rem;
+  font-size: 0.9em;
+  line-height: 1.55;
+  margin-bottom: 1.2em;
 }
 
 .policy-content th,
 .policy-content td {
-  border: 1px solid var(--color-line);
-  padding: 0.5em 0.7em;
+  border-bottom: 1px solid var(--color-line);
+  padding: 0.65em 0.85em;
   text-align: left;
   vertical-align: top;
+  min-width: 12em;
 }
 
-.policy-content th {
-  background: var(--color-line-soft);
+.policy-content thead th {
+  background: var(--color-brand-50);
   color: var(--color-ink);
   font-weight: 600;
+  white-space: nowrap;
+}
+
+.policy-content tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.policy-content tbody tr:nth-child(even) {
+  background: color-mix(in oklab, var(--color-canvas) 45%, transparent);
+}
+
+.policy-content table ul,
+.policy-content table ol {
+  margin-bottom: 0;
+  padding-left: 1.1em;
 }

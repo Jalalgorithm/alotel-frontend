@@ -5,6 +5,10 @@ import abujaImage from '@/assets/images/destinations/abuja.jpg';
 import dubaiImage from '@/assets/images/destinations/dubai.jpg';
 import newYorkImage from '@/assets/images/destinations/new-york.jpg';
 import lagosImage from '@/assets/images/destinations/lagos.jpg';
+/* Malaga has no photograph supplied yet. `Image` renders a branded
+   gradient in place of a missing src, so the card degrades rather than
+   breaking — but a real picture of the home port is owed. */
+const malagaImage = null;
 
 /**
  * Editorial content for each destination.
@@ -23,274 +27,309 @@ import lagosImage from '@/assets/images/destinations/lagos.jpg';
  * neighbourhood-level names in `Property.city` — Ikoyi, Lekki and Victoria
  * Island are all Lagos, and Shoreditch is London. Matching a destination to its
  * listings on the city string alone would show an empty Lagos page while four
- * Lagos properties sat in the catalogue.
+ * Lagos properties sat in the catalogue. The lists below therefore stay a
+ * superset of the neighbourhoods shown on the page: dropping an alias silently
+ * hides real listings.
+ *
+ * Copy supplied by the client 8 September 2026 and used verbatim. Where their
+ * note flags a placeholder — addresses, operators, prices — nothing has been
+ * invented to fill the gap.
+ *
+ * `photoBrief` is the art direction from the Section 5 homepage brief. Every
+ * tile image is still marked [PLACEHOLDER] there, so the brief is carried in
+ * code beside the copy it belongs to rather than left in a document — it is
+ * what the brand team needs to close out, and Malaga has no photograph at all
+ * yet (`image: null`, which renders a branded gradient instead).
  */
 
 export const DESTINATIONS = [
   {
     slug: 'london',
+    photoBrief: 'Skyline or Notting Hill townhouses',
     city: 'London',
     country: 'UK',
     market: 'UK',
     code: 'GB',
     image: londonImage,
-    cityAliases: ['London', 'Shoreditch', 'Camden', 'Westminster', 'Southwark', 'Hackney', 'Islington'],
-    tagline: 'Nine hundred villages that agreed to share a river.',
+    cityAliases: ['London', 'Shoreditch', 'Notting Hill', 'Canary Wharf', 'Camden', 'Westminster', 'Southwark', 'Hackney', 'Islington', 'Kensington'],
+    tagline: 'A city of a thousand neighbourhoods, one standard of stay.',
     intro:
-      'London rewards people who pick a neighbourhood before they pick a postcode. The centre is for institutions; the life is a few stops out, where the pubs still have regulars and the markets still sell food to people who live there.',
-    bestMonths: 'May to September, and December for the lights',
+      'London rewards those who go beyond the postcard. Our spaces sit inside the city’s real rhythm — a five-minute walk from a market, a canal, or a train that gets you anywhere in twenty minutes. Wherever you land, expect the same standard: professionally managed, quietly comfortable, genuinely yours for however long you’re here.',
+    bestMonths: 'May – September',
     language: 'English',
-    timezone: 'GMT / BST (UTC+0 / +1)',
-    gettingAround: 'Contactless on the Tube caps your daily spend automatically — no travelcard needed.',
+    timezone: 'GMT / BST (UTC+0 / UTC+1)',
+    gettingAround: 'Oyster card or contactless on the Tube, bus, and rail network; black cabs and ride-hailing widely available; walkable city centre.',
     neighbourhoods: [
       {
         name: 'Shoreditch',
-        note: 'Converted warehouses and independent coffee. Loud on Friday and Saturday nights — take a top floor if you sleep lightly.',
-        suits: 'Younger travellers, creative work trips',
+        note: 'Converted warehouses, street art, and a nightlife scene that runs later than the Tube.',
       },
       {
-        name: 'South Kensington',
-        note: 'Museums, garden squares and quiet streets. The most conventionally beautiful part of central London, and priced accordingly.',
-        suits: 'Families, longer stays',
+        name: 'Notting Hill',
+        note: 'Pastel townhouses, Portobello Market on weekends, and a slower, residential pace minutes from the centre.',
       },
       {
-        name: 'Hackney',
-        note: 'Canal walks, London Fields, and the best weekend market in the city at Broadway. Twenty minutes from the centre on the Overground.',
-        suits: 'Repeat visitors who want a local life',
+        name: 'Canary Wharf',
+        note: 'Glass towers, riverside walks, and the city’s financial pulse — built for business stays.',
       },
     ],
     knowBefore: [
-      'Deposits are usually held rather than charged, and released within a week of checkout.',
-      'Most residences are card-only — cash is genuinely awkward in London now.',
-      'Councils cap short lets at 90 nights a year, so longer stays are booked as residential.',
+      'Tipping is appreciated, not expected — round up or add 10% in restaurants.',
+      'Tap water is safe to drink everywhere.',
+      'Sundays mean reduced shop and transport hours in some areas — plan ahead.',
     ],
   },
   {
     slug: 'lagos',
+    photoBrief: 'Victoria Island skyline or Lekki waterfront',
     city: 'Lagos',
     country: 'Nigeria',
     market: 'Nigeria',
     code: 'NG',
     image: lagosImage,
-    cityAliases: ['Lagos', 'Ikoyi', 'Lekki', 'Victoria Island', 'Ikeja', 'Yaba', 'Ojo', 'Surulere'],
-    tagline: 'Africa’s loudest argument in favour of ambition.',
+    cityAliases: ['Lagos', 'Victoria Island', 'Ikoyi', 'Lekki', 'Ikeja', 'Yaba', 'Ojo', 'Surulere'],
+    tagline: 'Energy you can’t manufacture, comfort you can count on.',
     intro:
-      'Lagos runs on proximity. Where you stay decides how much of your day you spend in traffic, and locals plan around it without thinking. The islands are calmer and pricier; the mainland is where the music comes from.',
-    bestMonths: 'November to March, outside the heavy rains',
-    language: 'English, Yoruba, Pidgin',
+      'Lagos moves fast, and our spaces are built to keep up — secure, well-managed, and positioned close to where the city actually happens. From island calm to mainland hustle, we’ve done the groundwork so you can focus on being here, not figuring it out.',
+    bestMonths: 'November – February (dry season)',
+    language: 'English (official); Yoruba widely spoken; West African Pidgin English',
     timezone: 'WAT (UTC+1)',
-    gettingAround: 'Ride-hailing is the default. Budget an hour for anything crossing the bridges at rush hour.',
+    gettingAround: 'Ride-hailing apps (Uber, Bolt) recommended over hailing on the street; private drivers available through concierge; traffic is heavy — build in time.',
     neighbourhoods: [
       {
-        name: 'Ikoyi',
-        note: 'Old money, tree-lined and quiet. Closest thing Lagos has to a residential hush, and the easiest base for meetings on the island.',
-        suits: 'Business trips, families',
+        name: 'Victoria Island',
+        note: 'Business towers, beach clubs, and the city’s most established address for visitors.',
       },
       {
-        name: 'Victoria Island',
-        note: 'Offices, hotels and the restaurant scene. Convenient rather than charming, and you will never struggle to find dinner.',
-        suits: 'Short business stays',
+        name: 'Ikoyi',
+        note: 'Leafy, upscale, and residential — embassies, private clubs, and a calmer island pace.',
       },
       {
         name: 'Lekki',
-        note: 'Newer, more spread out, and where much of the city is moving. Beaches at the far end; the traffic on the expressway is the trade-off.',
-        suits: 'Longer stays, remote work',
+        note: 'Newer developments, waterside dining, and the city’s fastest-growing lifestyle hub.',
       },
     ],
     knowBefore: [
-      'Payment is by card via Flutterwave — Nigerian listings do not settle through Stripe.',
-      'Most residences run a generator or inverter; ask about backup power for long stays.',
-      'Prices are quoted in naira and can move quickly. What you are shown at checkout is what is charged.',
+      'Carry small cash (naira) for markets and informal transport; cards aren’t universal.',
+      'Security checkpoints are routine, especially near government zones — carry ID.',
+      'Infrastructure — our spaces run backup generators as standard.',
+      'Traffic peaks hard morning and evening; our concierge can time your journeys.',
     ],
   },
   {
     slug: 'abuja',
+    photoBrief: 'Aso Rock or Maitama avenue',
     city: 'Abuja',
     country: 'Nigeria',
     market: 'Nigeria',
     code: 'NG',
     image: abujaImage,
-    cityAliases: ['Abuja', 'Maitama', 'Asokoro', 'Wuse', 'Garki', 'Jabi'],
-    tagline: 'A capital built on purpose, and it shows.',
+    cityAliases: ['Abuja', 'Maitama', 'Asokoro', 'Wuse', 'Wuse II', 'Garki', 'Jabi'],
+    tagline: 'Ordered, green, and built for business done properly.',
     intro:
-      'Abuja was planned, and unlike Lagos it feels it — wide roads, green space, and a calm that surprises first-time visitors. It is a government and business city first, which makes it easy to work in and quiet at weekends.',
-    bestMonths: 'November to February, the dry and cooler months',
-    language: 'English, Hausa',
+      'Abuja is Nigeria’s planned capital — wide roads, hilltop views, and a calmer tempo than Lagos. Our spaces here favour those in for government, diplomatic, or corporate business, with the reliability that kind of stay demands.',
+    bestMonths: 'November – February (dry season)',
+    language: 'English (official); Hausa widely spoken',
     timezone: 'WAT (UTC+1)',
-    gettingAround: 'Distances are long but roads are good. Ride-hailing is reliable and cheap by Lagos standards.',
+    gettingAround: 'Ride-hailing apps widely used; the city is more spread out than Lagos, so private transport is recommended.',
     neighbourhoods: [
       {
         name: 'Maitama',
-        note: 'Embassies and the quietest streets in the city. Green, low-density and the most expensive address in Abuja.',
-        suits: 'Diplomatic and executive stays',
+        note: 'The diplomatic and political heart — spacious, secure, and quiet.',
+      },
+      {
+        name: 'Asokoro',
+        note: 'Hilltop residential district favoured by senior officials; close to Aso Rock.',
       },
       {
         name: 'Wuse II',
-        note: 'The commercial middle — restaurants, banks and offices within walking distance of each other, which is rare here.',
-        suits: 'Business trips',
-      },
-      {
-        name: 'Jabi',
-        note: 'Built around the lake, with the waterfront and the mall as the social centre. Newer buildings and better value.',
-        suits: 'Longer stays, families',
+        note: 'Central, commercial, and walkable — restaurants, shops, and business addresses.',
       },
     ],
     knowBefore: [
-      'Payment is by card via Flutterwave, as everywhere in Nigeria.',
-      'Weekends are genuinely quiet — plan around it rather than being surprised.',
-      'Check backup power arrangements for any stay over a few nights.',
+      'Security checkpoints are routine, especially near government zones — carry ID.',
+      'Cash is still preferred at smaller vendors.',
+      'Evenings cool down noticeably — pack a light layer.',
     ],
   },
   {
     slug: 'dubai',
+    photoBrief: 'Downtown skyline or Marina at dusk',
     city: 'Dubai',
     country: 'UAE',
     market: 'UAE Dubai',
     code: 'AE',
     image: dubaiImage,
-    cityAliases: ['Dubai', 'Downtown Dubai', 'Dubai Marina', 'Jumeirah', 'Business Bay', 'Deira', 'Al Barsha'],
-    tagline: 'A city that treats the impossible as a scheduling problem.',
+    cityAliases: ['Dubai', 'Downtown Dubai', 'Dubai Marina', 'Jumeirah', 'Business Bay', 'Deira', 'Palm Jumeirah'],
+    tagline: 'Where the extraordinary is simply the standard.',
     intro:
-      'Dubai is easier to enjoy once you stop trying to see all of it. Pick a strip — the Marina, Downtown, or the old creek — and stay within it. Everything is air-conditioned and everything is further away than it looks on a map.',
-    bestMonths: 'November to March. July and August are brutal.',
-    language: 'Arabic, English everywhere',
+      'Dubai does scale and polish better than anywhere — and our spaces match it, without losing the personal touch. Whether you’re here for business, transit, or to disappear into a rooftop pool for a week, we’ve mapped the city so your stay feels effortless from arrival to check-out.',
+    bestMonths: 'November – March',
+    language: 'Arabic (official); English widely spoken',
     timezone: 'GST (UTC+4)',
-    gettingAround: 'The Metro is excellent along its two lines and useless off them. Taxis are cheap and metered.',
+    gettingAround: 'Metro is efficient and affordable; taxis and ride-hailing widely available; many areas are best explored by car.',
     neighbourhoods: [
       {
+        name: 'Downtown Dubai',
+        note: 'Burj Khalifa, the Dubai Mall, and the fountain skyline in every direction.',
+      },
+      {
         name: 'Dubai Marina',
-        note: 'High-rise living on the water with the beach a walk away. The most self-contained part of the city — you need not leave it.',
-        suits: 'Leisure stays, longer visits',
+        note: 'Waterfront towers, beach clubs, and a buzzing promenade after dark.',
       },
       {
-        name: 'Downtown',
-        note: 'The Burj, the fountains and the mall. Spectacular and busy; excellent if your reason for coming is within it.',
-        suits: 'Short first visits',
-      },
-      {
-        name: 'Deira',
-        note: 'The old city across the creek — the gold and spice souks, and where Dubai feels most like somewhere with a past.',
-        suits: 'Travellers who want the older city',
+        name: 'Jumeirah',
+        note: 'Beachfront villas, boutique cafés, and a quieter, residential seaside feel.',
       },
     ],
     knowBefore: [
-      'There is no postal-code system — addresses are building and area names, so a street address is what matters.',
-      'Payment is by card via Stripe.',
-      'Ramadan changes opening hours and daytime dining considerably; check dates before booking.',
+      'Dress modestly in public and government areas — a legal expectation, not just etiquette. Beachwear stays at the beach or pool.',
+      'Alcohol (21+) is legal only in licensed venues. Public drinking, public intoxication, and any drink-driving are criminal offences — fines, detention, or deportation, even for first-time visitors.',
+      'Friday–Saturday is the weekend here, not Saturday–Sunday.',
     ],
   },
   {
     slug: 'madrid',
+    photoBrief: 'Plaza Mayor or Malasaña street',
     city: 'Madrid',
     country: 'Spain',
     market: 'Spain',
     code: 'ES',
     image: madridImage,
-    cityAliases: ['Madrid', 'Malasaña', 'Chueca', 'La Latina', 'Salamanca', 'Retiro', 'Chamberí'],
-    tagline: 'Europe’s least hurried capital, and its latest dinner.',
+    cityAliases: ['Madrid', 'Malasaña', 'Malasana', 'Salamanca', 'La Latina', 'Chueca', 'Chamberí', 'Retiro'],
+    tagline: 'Late nights, long lunches, spaces made for both.',
     intro:
-      'Madrid keeps different hours to the rest of Europe and expects you to keep up. Lunch is late, dinner is later, and the city is at its best in the hours either side of midnight. It is also flat, walkable and far cheaper than Barcelona.',
-    bestMonths: 'April to June, and September to November',
+      'Madrid runs on its own clock, and it’s a good one to adopt. Our spaces sit inside neighbourhoods built for lingering — near the plaza, the market, the museum you’ll want to visit twice. Settle in, and let the city’s pace take over.',
+    bestMonths: 'April – June, September – October',
     language: 'Spanish',
-    timezone: 'CET / CEST (UTC+1 / +2)',
-    gettingAround: 'The Metro is fast, cheap and covers everything. Most of the centre is walkable anyway.',
+    timezone: 'CET / CEST (UTC+1 / UTC+2)',
+    gettingAround: 'Extensive metro and bus network; walkable centre; taxis and ride-hailing readily available.',
     neighbourhoods: [
       {
         name: 'Malasaña',
-        note: 'Bars, record shops and the best of the city’s late nights. Central, characterful and noisy — which is the point.',
-        suits: 'Younger travellers, short stays',
+        note: 'Independent boutiques, vintage bars, and the city’s creative, bohemian streak.',
       },
       {
         name: 'Salamanca',
-        note: 'Wide avenues and serious shopping. The quietest and most formal central district, and the easiest place to sleep.',
-        suits: 'Business, families, longer stays',
+        note: 'Elegant, upscale, and polished — high-end shopping and grand architecture.',
       },
       {
         name: 'La Latina',
-        note: 'The oldest streets, the Sunday Rastro market and tapas bars that have not changed in decades.',
-        suits: 'First visits, food-led trips',
+        note: 'Historic, tapas-dense, and unmissable on a Sunday for its market and terraces.',
       },
     ],
     knowBefore: [
-      'Payment is by card via Stripe.',
-      'Spain applies a regional tourist tax in several areas — it appears as a line at checkout where it is due.',
-      'Most kitchens do not open for dinner before 20:30, and are busiest after 22:00.',
+      'Lunch runs late (2–4pm) and dinner later still (9pm+) — restaurants open accordingly.',
+      'August sees many local businesses close as residents holiday.',
+      'Siesta-era closures are rarer now, but some smaller shops still pause mid-afternoon.',
     ],
   },
   {
     slug: 'barcelona',
+    photoBrief: 'Sagrada Família or Barceloneta beach',
     city: 'Barcelona',
     country: 'Spain',
     market: 'Spain',
     code: 'ES',
     image: barcelonaImage,
-    cityAliases: ['Barcelona', 'Eixample', 'Gràcia', 'El Born', 'Barceloneta', 'Gothic Quarter', 'Poblenou'],
-    tagline: 'A grid designed in 1859 that still works better than most built since.',
+    cityAliases: ['Barcelona', 'Gràcia', 'Gracia', 'Eixample', 'Barceloneta', 'El Born', 'Poblenou', 'Sants'],
+    tagline: 'Sea, city, and design at every turn.',
     intro:
-      'Barcelona is a city you can walk end to end, with a beach at the bottom and hills at the top. It is also under real pressure from tourism, and the parts that reward you most are the ones a few blocks off the obvious route.',
-    bestMonths: 'May, June, September and October',
-    language: 'Catalan and Spanish',
-    timezone: 'CET / CEST (UTC+1 / +2)',
-    gettingAround: 'Walkable, with a Metro that fills the gaps. The bike network is genuinely good.',
+      'Barcelona layers beach, architecture, and food into one walkable city, and our spaces are chosen to put all three within reach. Wake up near Gaudí, end the day by the water — the city does the rest.',
+    bestMonths: 'May – June, September',
+    language: 'Catalan and Castilian Spanish',
+    timezone: 'CET / CEST (UTC+1 / UTC+2)',
+    gettingAround: 'Metro, bus, and tram cover the city well; bike-share is popular; the old town is best explored on foot.',
     neighbourhoods: [
       {
-        name: 'Eixample',
-        note: 'Cerdà’s grid, the modernist buildings and the widest streets in the city. Central without being overrun.',
-        suits: 'First visits, families',
-      },
-      {
         name: 'Gràcia',
-        note: 'A separate town until 1897 and still behaves like one — small squares, independent shops, and residents who live there year-round.',
-        suits: 'Longer stays, repeat visitors',
+        note: 'Village-like squares, independent cafés, and a strong local (not tourist) feel.',
       },
       {
-        name: 'El Born',
-        note: 'Medieval lanes, the Picasso museum and the best concentration of small restaurants. Busy, and worth it.',
-        suits: 'Short stays, food-led trips',
+        name: 'Eixample',
+        note: 'Grand boulevards, Modernist architecture including Gaudí landmarks, and central convenience.',
+      },
+      {
+        name: 'Barceloneta',
+        note: 'Beachfront, seafood, and the city’s most relaxed pace by the water.',
       },
     ],
     knowBefore: [
-      'Payment is by card via Stripe.',
-      'Catalonia levies a tourist tax per night, shown separately at checkout.',
-      'Short-let licensing is tightly enforced here — every Alotel residence is licensed.',
+      'Pickpocketing is common in tourist-dense areas — stay alert with bags and phones.',
+      'Many restaurants close between lunch and dinner service — check hours before you go.',
+      'Catalan and Spanish both appear on signage; either language works for getting by.',
+    ],
+  },
+  {
+    slug: 'malaga',
+    photoBrief: 'La Malagueta beach or Soho street art',
+    city: 'Malaga',
+    country: 'Spain',
+    market: 'Spain',
+    code: 'ES',
+    image: malagaImage,
+    cityAliases: ['Malaga', 'Málaga', 'La Malagueta', 'Soho', 'El Palo', 'Benalmádena', 'Benalmadena', 'Costa del Sol'],
+    tagline: 'Our home port — coastal, unhurried, and where it all starts.',
+    intro:
+      'Malaga is where Alotel Spaces is headquartered, and it shows in how well we know the city. Sun-warmed, walkable, and increasingly a serious base for remote work and creative industry alongside its old-town charm — our spaces here sit close to the harbour, the historic centre, and the Costa del Sol beyond.',
+    bestMonths: 'April – June, September – October',
+    language: 'Spanish (Andalusian)',
+    timezone: 'CET / CEST (UTC+1 / UTC+2)',
+    gettingAround: 'Compact, walkable centre; local bus network and a small metro line; taxis and ride-hailing widely available; regional trains reach the wider Costa del Sol.',
+    neighbourhoods: [
+      {
+        name: 'La Malagueta',
+        note: 'Beachfront promenade, steps from the old town and the port.',
+      },
+      {
+        name: 'Soho',
+        note: 'Malaga’s arts district, street murals, galleries, and a growing creative and remote-work scene.',
+      },
+      {
+        name: 'El Palo',
+        note: 'A traditional fishing quarter, beachside chiringuitos, and a slower, local pace.',
+      },
+    ],
+    knowBefore: [
+      'Summers run hot and dry — pack sun protection and expect an afternoon lull in smaller shops.',
+      'Dinner runs late by northern-European standards — most kitchens open from 8:30–9pm.',
+      'This is our head office city — if a space here can’t cover something, our own team is closest to fix it fast.',
     ],
   },
   {
     slug: 'new-york',
+    photoBrief: 'Manhattan skyline or Williamsburg rooftop',
     city: 'New York',
-    country: 'United States',
+    country: 'USA',
     market: 'US',
     code: 'US',
     image: newYorkImage,
-    cityAliases: ['New York', 'New York City', 'Manhattan', 'Brooklyn', 'Queens', 'Harlem', 'Williamsburg'],
-    tagline: 'The only city that is exactly as advertised.',
+    cityAliases: ['New York', 'New York City', 'Manhattan', 'West Village', 'Williamsburg', 'Midtown', 'Brooklyn', 'Queens', 'Harlem'],
+    tagline: 'The city that sets the pace — we help you keep it.',
     intro:
-      'New York is dense enough that the neighbourhood you choose decides the trip. Manhattan below 96th is convenient and expensive; Brooklyn is where more people would rather actually be. Both are twenty minutes from the other.',
-    bestMonths: 'April to June, and September to early November',
+      'New York doesn’t slow down for anyone, so our spaces are built for guests who want to move with it — well-connected, well-managed, and ready the moment you arrive. Whichever borough or block you land on, expect the same standard throughout.',
+    bestMonths: 'April – June, September – November',
     language: 'English',
-    timezone: 'ET (UTC−5 / −4)',
-    gettingAround: 'The subway runs all night and is the fastest thing on the island. Buy an OMNY tap or use contactless.',
+    timezone: 'EST / EDT (UTC-5 / UTC-4)',
+    gettingAround: 'Subway runs 24/7 and covers the city extensively; yellow cabs and ride-hailing widely available; walkable in Manhattan.',
     neighbourhoods: [
       {
         name: 'West Village',
-        note: 'Low buildings, crooked streets and the least grid-like part of Manhattan. Expensive and worth a walk regardless of where you stay.',
-        suits: 'Couples, short stays',
+        note: 'Tree-lined streets, historic townhouses, and a slower, residential downtown feel.',
       },
       {
         name: 'Williamsburg',
-        note: 'Across the river with the best skyline view back at Manhattan. Food, music and a walkable centre.',
-        suits: 'Longer stays, repeat visitors',
+        note: 'Brooklyn’s creative hub — galleries, rooftop bars, and skyline views back to Manhattan.',
       },
       {
-        name: 'Upper West Side',
-        note: 'The park on one side, the river on the other, and a genuinely residential feel. Quiet by New York standards.',
-        suits: 'Families',
+        name: 'Midtown',
+        note: 'Central, commercial, and unmissable — Times Square, business towers, and constant motion.',
       },
     ],
     knowBefore: [
-      'Payment is by card via Stripe.',
-      'New York stacks state, city and occupancy taxes — each appears as its own line at checkout.',
-      'Stays under 30 days are tightly regulated in NYC; every Alotel residence is registered.',
+      'Tipping is standard and expected: 18–20% at restaurants, and for most services.',
+      'Subway etiquette matters — stand right on escalators, let riders off before boarding.',
+      'Weather swings hard by season — pack for genuine heat in summer, real cold in winter.',
     ],
   },
 ];

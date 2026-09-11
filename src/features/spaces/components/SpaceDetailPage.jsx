@@ -1,11 +1,12 @@
 import { useParams } from 'react-router-dom';
-import { Clock, Maximize2, Users } from 'lucide-react';
+import { Clock, MapPin, Maximize2, Users } from 'lucide-react';
 import { SpaceImage } from './SpaceImage';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { SpacesEmpty } from './SpacesEmpty';
 import { formatCurrency, formatDate } from '@/utils/format';
 import { DAY_NAMES, formatTime } from '@/lib/spaceSchema';
 import { useSpace } from '../hooks/useSpaces';
+import { LocationMap } from '@/components/map/LocationMap';
 import { SpaceBookingPanel } from './SpaceBookingPanel';
 
 /**
@@ -195,6 +196,26 @@ export const SpaceDetailPage = () => {
                 .
               </p>
             )}
+          </section>
+
+          {/*
+            Where it is. A space is booked by the hour, often between other
+            appointments, so how far it is from wherever someone already has to
+            be is a booking-critical fact — not a detail to discover afterwards.
+            The address is exact here: unlike a residence, a space is a
+            commercial address with nothing to protect.
+          */}
+          <section className="mt-7">
+            <h2 className="inline-flex items-center gap-2 font-display text-[16px] font-semibold text-ink">
+              <MapPin className="size-4 text-brand-600" aria-hidden="true" />
+              Where it is
+            </h2>
+            <LocationMap
+              className="mt-3"
+              coordinates={space.coordinates}
+              address={[space.address, space.city, space.country].filter(Boolean).join(', ')}
+              label={space.name}
+            />
           </section>
         </div>
 

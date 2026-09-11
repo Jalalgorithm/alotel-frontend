@@ -12,6 +12,7 @@ import {
   Users,
   XCircle,
 } from 'lucide-react';
+import { LocationMap } from '@/components/map/LocationMap';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
@@ -386,9 +387,19 @@ export const SpaceBookingConfirmationPage = () => {
             <MapPin className="size-4 text-brand-600" aria-hidden="true" />
             Getting there
           </h2>
-          <p className="mt-1 text-[12.5px] leading-5 text-ink-soft">
-            {[space.address, space.city, space.country].filter(Boolean).join(', ')}
-          </p>
+
+          {/*
+            The map carries the address and its own directions link, so the
+            plain address line that used to sit here would say it twice. This
+            booking is confirmed, so the location is exact — no `approximate`.
+          */}
+          <LocationMap
+            className="mt-3"
+            coordinates={space.coordinates}
+            address={[space.address, space.city, space.country].filter(Boolean).join(', ')}
+            label={space.name}
+            height="h-[220px]"
+          />
 
           <div className="mt-3 flex flex-wrap gap-2">
             <Button

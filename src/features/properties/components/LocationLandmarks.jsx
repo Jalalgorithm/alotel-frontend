@@ -1,4 +1,5 @@
-import { BadgeCheck, ExternalLink, Info, MapPin, Navigation } from 'lucide-react';
+import { BadgeCheck, ExternalLink, Navigation } from 'lucide-react';
+import { LocationMap } from '@/components/map/LocationMap';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/utils/classNames';
 
@@ -11,73 +12,11 @@ import { cn } from '@/utils/classNames';
  *    came from mock fixtures and rendered as an empty `<ul>` against real data.
  *    An empty section is worse than no section.
  *
- * 2. **No embedded map.** Rendering real tiles needs a Mapbox public token,
- *    and none is configured. Rather than ship a broken map or a fake one
- *    pretending to be real, this shows a stylised locator that is honest about
- *    being approximate, and hands off to a real map provider with the actual
- *    coordinates the API holds.
+ * 2. **A real map.** This used to draw a stylised locator, because no Mapbox
+ *    token was configured at the time. One is now, so it renders tiles — and
+ *    `LocationMap` falls back to an address-only card if the token goes away
+ *    or the API has no coordinates for a listing.
  */
-
-/** Where the pin sits within the panel, derived from real coordinates. */
-const pinPosition = (coordinates) => {
-  if (!coordinates) return { left: '50%', top: '50%' };
-
-  // Fractional parts only — enough to vary the placement per property without
-  // implying the panel is a real projection of anywhere.
-  const fraction = (value) => Math.abs(value % 1);
-  return {
-    left: `${28 + fraction(coordinates.lng) * 44}%`,
-    top: `${30 + fraction(coordinates.lat) * 40}%`,
-  };
-};
-
-const LocatorPanel = ({ property }) => {
-  const position = pinPosition(property.coordinates);
-  const label = [property.city, property.country].filter(Boolean).join(', ');
-
-  return (
-    <div
-      className="relative h-56 overflow-hidden rounded-lg bg-[#dfe8e2]"
-      role="img"
-      aria-label={`Approximate location of this residence in ${label}`}
-    >
-      <svg viewBox="0 0 400 200" className="size-full" aria-hidden="true">
-        <rect width="400" height="200" fill="#dbe7e0" />
-        <path d="M0 140 Q80 110 160 145 T400 120 L400 200 L0 200 Z" fill="#bcd6e8" />
-        <path d="M0 60 Q120 90 240 55 T400 70" fill="none" stroke="#c6dcd0" strokeWidth="10" />
-        {[40, 90, 150].map((y) => (
-          <line key={y} x1="0" y1={y} x2="400" y2={y} stroke="#ffffff" strokeWidth="2" opacity="0.7" />
-        ))}
-        {[70, 150, 230, 310].map((x) => (
-          <line key={x} x1={x} y1="0" x2={x} y2="200" stroke="#ffffff" strokeWidth="2" opacity="0.7" />
-        ))}
-        {[
-          [20, 20],
-          [180, 25],
-          [260, 95],
-          [90, 105],
-        ].map(([x, y]) => (
-          <rect key={`${x}-${y}`} x={x} y={y} width="42" height="26" rx="4" fill="#cddcd3" />
-        ))}
-      </svg>
-
-      {/* Approximate-area ring rather than a precise pin — the exact address is
-          shared on booking, and a hard pin would overstate what this shows. */}
-      <span
-        className="pointer-events-none absolute size-24 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-brand-600/30 bg-brand-600/10"
-        style={position}
-        aria-hidden="true"
-      />
-      <span
-        className="absolute flex -translate-x-1/2 -translate-y-1/2 items-center gap-1.5 rounded-full bg-brand-700 px-3 py-1.5 text-[11px] font-medium text-white shadow-raised"
-        style={position}
-      >
-        <MapPin className="size-3" aria-hidden="true" />
-        {label}
-      </span>
-    </div>
-  );
-};
 
 export const LocationLandmarks = ({ property, className }) => {
   const { coordinates } = property;
@@ -93,8 +32,28 @@ export const LocationLandmarks = ({ property, className }) => {
     <section className={cn('rounded-card border border-line bg-surface p-5 shadow-card', className)}>
       <h2 className="text-[15px] font-semibold text-brand-700">Location</h2>
 
+      {/*
+        A real map, not the stylised panel this used to draw.
+
+        That panel placed its pin from the *fractional parts* of the
+        coordinates — deliberately not a projection of anywhere — because when
+        it was written no Mapbox token was configured. One is configured now,
+        so the honest thing is tiles. `LocationMap` still degrades to an
+        address-only card if the token is ever removed, or if the API has no
+        coordinates for a listing (two of ten currently do not).
+
+        `approximate` keeps the existing promise: a residence shows its area
+        until the booking is confirmed, at which point the exact address is
+        sent. Zoom is pulled back a step for the same reason.
+      */}
       <div className="mt-4">
-        <LocatorPanel property={property} />
+        <LocationMap
+          coordinates={property.coordinates}
+          address={addressLine || [property.city, property.country].filter(Boolean).join(', ')}
+          approximate
+          zoom={12.5}
+          height="h-56"
+        />
       </div>
 
       <dl className="mt-4 space-y-3">
@@ -125,12 +84,6 @@ export const LocationLandmarks = ({ property, className }) => {
           </div>
         )}
       </dl>
-
-      <p className="mt-3 inline-flex items-start gap-1.5 text-[11.5px] text-ink-muted">
-        <Info className="mt-0.5 size-3.5 shrink-0 text-brand-600" aria-hidden="true" />
-        The map shows the approximate area. The exact address and access details are shared once your booking is
-        confirmed.
-      </p>
 
       <div className="mt-4 flex flex-wrap gap-2">
         <Button

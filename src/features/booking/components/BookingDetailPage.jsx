@@ -16,6 +16,7 @@ import {
   Users,
   XCircle,
 } from 'lucide-react';
+import { LocationMap } from '@/components/map/LocationMap';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Alert } from '@/components/ui/Alert';
@@ -99,6 +100,9 @@ const Fact = ({ icon: Icon, label, children }) => (
 );
 
 /* -------------------------------------------------------------------------- */
+/** Statuses where the guest has paid and the exact address is theirs to have. */
+const SETTLED_STATUSES = ['confirmed', 'active', 'completed', 'pending_kyc', 'pending_approval'];
+
 /* Messages                                                                    */
 /* -------------------------------------------------------------------------- */
 
@@ -403,6 +407,29 @@ export const BookingDetailPage = () => {
                 </Fact>
               </div>
             </Panel>
+
+            {/*
+              Where the stay is.
+              
+              Only once the booking is settled. Before that the residence shows
+              its approximate area on the listing page, and the exact address
+              is what the confirmation buys you — putting it here on an unpaid
+              booking would give it away.
+            */}
+            {property && SETTLED_STATUSES.includes(booking.status) && (
+              <Panel title="Getting there" subtitle="The address and how to reach it.">
+                <LocationMap
+                  coordinates={property.coordinates}
+                  address={
+                    [property.address, property.city, property.state, property.country]
+                      .filter(Boolean)
+                      .join(', ')
+                  }
+                  label={property.name}
+                  height="h-[220px]"
+                />
+              </Panel>
+            )}
 
             <Panel
               title="Payment summary"

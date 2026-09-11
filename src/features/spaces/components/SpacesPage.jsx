@@ -1,9 +1,13 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Search, SlidersHorizontal, Users } from 'lucide-react';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { cn } from '@/utils/classNames';
+import { MapUnavailable, ResultsMap } from '@/components/map/ResultsMap';
+import { env } from '@/lib/env';
+import { formatCurrency } from '@/utils/format';
+import { rateSuffix } from '@/lib/spaceSchema';
 import { SpacesEmpty } from './SpacesEmpty';
 import { useSpaces } from '../hooks/useSpaces';
 import { SpaceCard } from './SpaceCard';
@@ -25,7 +29,30 @@ export const SpacesPage = () => {
 
   const { data, isLoading } = useSpaces({ ...filters, category });
 
-  const spaces = data?.items ?? [];
+  /* Memoised because `?? []` allocates a fresh array on every render, which
+     would defeat the `points` memo underneath it. */
+  const spaces = useMemo(() => data?.items ?? [], [data]);
+
+  /* Which card the map is pointing at, and vice versa. */
+  const [activeId, setActiveId] = useState(null);
+
+  /*
+   * The pill says the rate and its unit — "£120 / hour" — because that is the
+   * number someone compares when they are choosing between two rooms in the
+   * same part of town. A residence pill says a nightly price for the same
+   * reason; the map component itself is indifferent.
+   */
+  const points = useMemo(
+    () =>
+      spaces.map((space) => ({
+        id: space.id,
+        lat: space.coordinates?.lat,
+        lng: space.coordinates?.lng,
+        label: `${formatCurrency(space.baseRate, space.currency, { decimals: 0 })} / ${rateSuffix(space)}`,
+        description: `${space.name} — ${formatCurrency(space.baseRate, space.currency)} per ${rateSuffix(space)}`,
+      })),
+    [spaces],
+  );
 
   /*
    * Built from what hosts have actually typed into `space_type` rather than a
@@ -108,10 +135,55 @@ export const SpacesPage = () => {
           <p className="mt-5 text-[12.5px] text-ink-muted">
             {spaces.length} space{spaces.length === 1 ? '' : 's'} available
           </p>
-          <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {spaces.map((space) => (
-              <SpaceCard key={space.id} space={space} />
-            ))}
+
+          {/*
+            List and map, the same split the residence search uses. Where a
+            space is matters more than where a residence is — it is booked in
+            hours, usually around something else already fixed in the day — so
+            the map is not an afterthought here.
+
+            The map column is hidden below `lg`: a sticky half-screen map on a
+            phone costs more room than it gives back.
+          */}
+          <div className="mt-3 grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] lg:items-start">
+            <div className="grid gap-4 sm:grid-cols-2">
+              {spaces.map((space) => (
+                <div
+                  key={space.id}
+                  id={`space-${space.id}`}
+                  onMouseEnter={() => setActiveId(space.id)}
+                  onMouseLeave={() => setActiveId(null)}
+                  className={cn(
+                    'rounded-card transition-shadow',
+                    activeId === space.id && 'ring-2 ring-brand-500',
+                  )}
+                >
+                  <SpaceCard space={space} />
+                </div>
+              ))}
+            </div>
+
+            <div className="hidden lg:block">
+              <div className="sticky top-24 h-[calc(100vh-8rem)]">
+                {env.mapboxToken ? (
+                  <ResultsMap
+                    points={points}
+                    total={spaces.length}
+                    activeId={activeId}
+                    onHover={setActiveId}
+                    onSelect={(id) => {
+                      setActiveId(id);
+                      document
+                        .getElementById(`space-${id}`)
+                        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }}
+                    className="size-full"
+                  />
+                ) : (
+                  <MapUnavailable className="size-full" />
+                )}
+              </div>
+            </div>
           </div>
         </>
       ) : (

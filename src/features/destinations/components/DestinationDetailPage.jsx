@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
   ArrowRight,
@@ -16,6 +17,9 @@ import { PropertyGrid } from '@/features/properties';
 import { SpaceCard } from '@/features/spaces/components/SpaceCard';
 import { cn } from '@/utils/classNames';
 import { formatCurrency } from '@/utils/format';
+import { MapUnavailable, ResultsMap } from '@/components/map/ResultsMap';
+import { env } from '@/lib/env';
+import { rateSuffix } from '@/lib/spaceSchema';
 import { useDestination } from '../hooks/useDestinations';
 
 /**
@@ -60,6 +64,31 @@ const Fact = ({ icon: Icon, label, value }) => (
 export const DestinationDetailPage = () => {
   const { slug } = useParams();
   const { data: destination, isLoading } = useDestination(slug);
+
+  /*
+   * Residences and spaces as one set of points. Both carry `coordinates` from
+   * their own mappers; `ResultsMap` drops any without one and says how many.
+   */
+  const cityPoints = useMemo(() => {
+    if (!destination) return [];
+
+    return [
+      ...destination.properties.map((property) => ({
+        id: `stay-${property.id}`,
+        lat: property.coordinates?.lat,
+        lng: property.coordinates?.lng,
+        label: formatCurrency(property.price, property.currency, { decimals: 0 }),
+        description: `${property.name} — ${formatCurrency(property.price, property.currency)} a night`,
+      })),
+      ...destination.spaces.map((space) => ({
+        id: `space-${space.id}`,
+        lat: space.coordinates?.lat,
+        lng: space.coordinates?.lng,
+        label: `${formatCurrency(space.baseRate, space.currency, { decimals: 0 })} / ${rateSuffix(space)}`,
+        description: `${space.name} — ${formatCurrency(space.baseRate, space.currency)} per ${rateSuffix(space)}`,
+      })),
+    ];
+  }, [destination]);
 
   if (isLoading) {
     return (
@@ -194,6 +223,34 @@ export const DestinationDetailPage = () => {
             </Link>
           </aside>
         </div>
+
+        {/* ---------------------------------------------------------- map */}
+        {/*
+          Everything we run in this city on one map — residences and spaces
+          together, which is the one view neither search can give you. A guide
+          is where someone is still choosing a neighbourhood, so how the two
+          sit relative to each other is the point.
+
+          Only rendered when something is placeable: several cities have no
+          inventory yet, and an empty map of a city centre says nothing.
+        */}
+        {cityPoints.length > 0 && (
+          <section className="mt-12">
+            <h2 className="font-display text-[21px] font-semibold text-ink">On the map</h2>
+            <p className="mt-1 max-w-2xl text-[13px] text-ink-soft">
+              Residences show a nightly rate, spaces their hourly or daily one.
+            </p>
+
+            {env.mapboxToken ? (
+              /* 120km of the median: wide enough for any metro area and its
+                 airports, tight enough to reject a listing geocoded to
+                 another country. */
+              <ResultsMap points={cityPoints} withinKm={120} className="mt-5 h-[420px]" />
+            ) : (
+              <MapUnavailable className="mt-5 h-[420px]" />
+            )}
+          </section>
+        )}
 
         {/* ---------------------------------------------------- residences */}
         {destination.properties.length > 0 && (

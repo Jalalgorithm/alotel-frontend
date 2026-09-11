@@ -318,6 +318,68 @@ html[data-motion='reduced'] .brand-loader-halo {
 }
 
 /* -------------------------------------------------------------------------- */
+/* Marquee                                                                    */
+/* -------------------------------------------------------------------------- */
+
+/*
+ * A continuous horizontal drift, used for the provider strip on the About
+ * page. The track holds the same list twice and travels exactly half its own
+ * width, so the second copy lands where the first began and the loop has no
+ * visible seam.
+ */
+@keyframes marquee-drift {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.marquee-track {
+  display: flex;
+  width: max-content;
+  animation: marquee-drift 34s linear infinite;
+}
+
+/* Stop while someone is reading a particular one. */
+.marquee:hover .marquee-track,
+.marquee:focus-within .marquee-track {
+  animation-play-state: paused;
+}
+
+/*
+ * Reduced motion gets a strip that scrolls by hand instead of on its own. The
+ * duplicate copy is hidden, because a static marquee would otherwise show the
+ * same four names twice with no explanation.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .marquee {
+    overflow-x: auto;
+  }
+
+  .marquee-track {
+    animation: none;
+  }
+
+  .marquee-track > [data-marquee-clone] {
+    display: none;
+  }
+}
+
+html[data-motion='reduced'] .marquee {
+  overflow-x: auto;
+}
+
+html[data-motion='reduced'] .marquee-track {
+  animation: none;
+}
+
+html[data-motion='reduced'] .marquee-track > [data-marquee-clone] {
+  display: none;
+}
+
+/* -------------------------------------------------------------------------- */
 /* Accessibility preferences                                                  */
 /* -------------------------------------------------------------------------- */
 

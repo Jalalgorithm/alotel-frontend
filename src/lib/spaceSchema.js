@@ -1,4 +1,8 @@
-import { env } from '@/lib/env';
+import { mediaUrl } from '@/lib/mediaUrl';
+
+/* Re-exported: several space mappers resolve media, and callers already
+   import it from here. The implementation lives in `lib/mediaUrl`. */
+export { mediaUrl };
 
 /**
  * Spaces vocabulary — meeting rooms, boardrooms, event halls.
@@ -68,28 +72,6 @@ export const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'
 /** JS `getDay()` (0 = Sunday) -> API `day_of_week` (0 = Monday). */
 export const jsDayToApiDay = (jsDay) => (jsDay + 6) % 7;
 
-/**
- * Resolve a media path against the API origin.
- *
- * `SpaceImageSerializer` returns a *relative* path (`/media/space_media/x.png`)
- * because it is not given `request` in its serializer context, while the
- * property serializers return absolute URLs. A relative path resolves against
- * the *frontend* origin, so the image 404s on localhost and would point at the
- * Vercel domain in production.
- *
- * Absolute URLs pass through untouched, so this keeps working the day the
- * backend starts sending them.
- */
-export const mediaUrl = (path) => {
-  if (!path) return '';
-  if (/^https?:\/\//i.test(path) || path.startsWith('data:')) return path;
-
-  try {
-    return new URL(path, new URL(env.apiUrl, window.location.origin).origin).toString();
-  } catch {
-    return path;
-  }
-};
 
 const toNumber = (value) => {
   const parsed = Number(value);

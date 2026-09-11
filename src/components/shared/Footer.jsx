@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Facebook, Instagram, Linkedin, Mail, MapPin, Phone, Twitter } from 'lucide-react';
+import { Facebook, Instagram, Linkedin, Mail, Phone, Twitter } from 'lucide-react';
 import { paths } from '@/routes/paths';
-import { CONTACT_CHANNELS, OFFICES } from '@/lib/companyContent';
+import { CONTACT_CHANNELS } from '@/lib/companyContent';
 import { Logo } from './Logo';
 import { toast } from '@/stores/uiStore';
 
@@ -97,7 +97,7 @@ export const Footer = () => {
         </div>
 
         {/* Link columns */}
-        <div className="grid grid-cols-1 gap-10 pb-8 pt-10 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="grid grid-cols-1 gap-10 pb-8 pt-10 sm:grid-cols-2 lg:grid-cols-6">
           <div className="lg:pr-8">
             <Logo tone="light" />
             <p className="mt-4 max-w-xs text-[13px] leading-6 text-white/60">
@@ -136,50 +136,37 @@ export const Footer = () => {
               </ul>
             </div>
           ))}
-        </div>
 
-        {/* Offices and contact.
-            Sourced from `companyContent` rather than retyped, so an address
-            corrected on the About page can never go stale down here. */}
-        <div className="grid gap-8 border-t border-white/10 py-8 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="lg:col-span-2">
-            <h3 className="text-[13px] font-semibold uppercase tracking-wide text-white">EMEA Offices</h3>
-            <div className="mt-4 grid gap-6 sm:grid-cols-2">
-              {OFFICES.map((office) => (
-                <address key={office.id} className="not-italic">
-                  <p className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-white/50">
-                    <MapPin className="size-3" aria-hidden="true" />
-                    {office.region}
-                  </p>
-                  <p className="mt-1.5 text-[13px] leading-6 text-white/60">
-                    {office.lines.map((line) => (
-                      <span key={line} className="block">
-                        {line}
-                      </span>
-                    ))}
-                  </p>
-                </address>
-              ))}
-            </div>
-          </div>
+          {/*
+            Contact is the last column rather than a band of its own.
 
-          <div className="lg:col-span-2">
+            It is not part of `FOOTER_COLUMNS` because those are internal
+            routes rendered with `Link`; these are `mailto:` and `tel:`, which
+            need a plain anchor and an icon. The label sits above the value on
+            its own line — side by side it no longer fits a column this narrow.
+
+            The postal addresses that used to sit here were removed at the
+            client's request; they remain on the About page under Contact.
+          */}
+          <div>
             <h3 className="text-[13px] font-semibold uppercase tracking-wide text-white">Contact</h3>
             <ul className="mt-4 space-y-3">
               {CONTACT_CHANNELS.map((channel) => (
                 <li key={channel.id}>
                   <a
                     href={channel.href}
-                    className="inline-flex items-center gap-2 text-[13px] text-white/60 transition-colors hover:text-white"
+                    className="group inline-flex items-start gap-2 py-1 text-[13px] text-white/60 transition-colors hover:text-white"
                   >
                     {channel.id === 'phone' ? (
-                      <Phone className="size-3.5 shrink-0" aria-hidden="true" />
+                      <Phone className="mt-1 size-3.5 shrink-0" aria-hidden="true" />
                     ) : (
-                      <Mail className="size-3.5 shrink-0" aria-hidden="true" />
+                      <Mail className="mt-1 size-3.5 shrink-0" aria-hidden="true" />
                     )}
-                    <span>
-                      <span className="text-white/40">{channel.label}: </span>
-                      {channel.value}
+                    <span className="min-w-0">
+                      <span className="block text-[11px] uppercase tracking-[0.06em] text-white/40">
+                        {channel.label}
+                      </span>
+                      <span className="block break-words">{channel.value}</span>
                     </span>
                   </a>
                 </li>

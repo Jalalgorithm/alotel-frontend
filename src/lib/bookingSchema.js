@@ -7,6 +7,8 @@
  * re-deriving anything.
  */
 
+import { mediaUrl } from '@/lib/mediaUrl';
+
 /** Booking lifecycle, as the API models it. */
 export const BOOKING_STATUS_LABELS = {
   pending_payment: 'Payment pending',
@@ -223,7 +225,9 @@ export const toInspection = (raw) => {
       .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
       .map((item) => ({
         id: item.id,
-        url: item.file,
+        /* Django returns `/media/...`, which the browser would resolve
+           against the page origin rather than the API. */
+        url: mediaUrl(item.file),
         roomArea: item.room_area,
         roomLabel: ROOM_AREA_LABELS[item.room_area] ?? item.room_area,
         /** Staff can upload video as well as stills. */

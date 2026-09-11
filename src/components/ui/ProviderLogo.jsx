@@ -36,13 +36,42 @@ const Flutterwave = ({ className }) => (
   </svg>
 );
 
+const DropboxSign = ({ className }) => (
+  <svg viewBox="0 0 32 32" role="img" aria-label="Dropbox Sign" className={className}>
+    <rect width="32" height="32" rx="7" fill="currentColor" />
+    {/*
+      Dropbox's mark is two stacked diamonds. Same rule as Flutterwave below:
+      an honest generic beats a rough copy of someone's trademark.
+    */}
+    <g fill="#fff">
+      <path d="M11 8.5 6.5 11.6 11 14.7l4.5-3.1L11 8.5Z" />
+      <path d="M21 8.5l-4.5 3.1 4.5 3.1 4.5-3.1L21 8.5Z" />
+      <path d="M6.5 17.8 11 14.7l4.5 3.1L11 20.9l-4.5-3.1Z" />
+      <path d="M16.5 17.8 21 14.7l4.5 3.1L21 20.9l-4.5-3.1Z" opacity=".75" />
+    </g>
+  </svg>
+);
+
+const Mapbox = ({ className }) => (
+  <svg viewBox="0 0 32 32" role="img" aria-label="Mapbox" className={className}>
+    <rect width="32" height="32" rx="7" fill="currentColor" />
+    {/* A pin, which is what the service does for us. */}
+    <path
+      fill="#fff"
+      d="M16 7.5c-3.3 0-6 2.6-6 5.9 0 4.3 6 11.1 6 11.1s6-6.8 6-11.1c0-3.3-2.7-5.9-6-5.9Zm0 8.1a2.2 2.2 0 1 1 0-4.4 2.2 2.2 0 0 1 0 4.4Z"
+    />
+  </svg>
+);
+
 const MARKS = {
   stripe: { Component: Stripe, brand: 'text-[#635BFF]' },
   flutterwave: { Component: Flutterwave, brand: 'text-[#F5A623]' },
+  'dropbox-sign': { Component: DropboxSign, brand: 'text-[#0061FF]' },
+  mapbox: { Component: Mapbox, brand: 'text-[#4264FB]' },
 };
 
 /**
- * @param {{ provider: 'stripe' | 'flutterwave', isMuted?: boolean }} props
+ * @param {{ provider: 'stripe' | 'flutterwave' | 'dropbox-sign' | 'mapbox', isMuted?: boolean }} props
  *  `isMuted` drops the brand colour to grey, for a provider that is offered but
  *  unavailable in this currency.
  */

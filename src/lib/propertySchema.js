@@ -8,6 +8,8 @@
  * flag flips, which is the same contract `authService` keeps.
  */
 
+import { mediaUrl } from '@/lib/mediaUrl';
+
 /** Matches the API's `type` choices exactly; 'All' is the UI's own no-op. */
 export const PROPERTY_TYPE_FILTERS = [
   'All',
@@ -91,10 +93,10 @@ const imagesFor = (raw, gallery) => {
   const uploaded = (Array.isArray(gallery) ? gallery : [])
     .slice()
     .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-    .map((entry) => entry.property_image)
+    .map((entry) => mediaUrl(entry.property_image))
     .filter(Boolean);
 
-  const combined = [raw.thumbNail, ...uploaded].filter(Boolean);
+  const combined = [mediaUrl(raw.thumbNail), ...uploaded].filter(Boolean);
   if (combined.length) return [...new Set(combined)];
 
   return PLACEHOLDER_SETS[hashIndex(String(raw.id), PLACEHOLDER_SETS.length)].map((id) => img(id));
@@ -233,8 +235,8 @@ export const toProperty = (raw, gallery) => {
  */
 export const toVideo = (raw) => ({
   id: raw.id,
-  url: raw.property_video,
-  poster: raw.thumbnail || null,
+  url: mediaUrl(raw.property_video),
+  poster: mediaUrl(raw.thumbnail) || null,
   roomType: raw.roomType || 'Walkthrough',
   caption: raw.caption || '',
   /** Seconds, when the server knows it. */

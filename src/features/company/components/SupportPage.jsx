@@ -24,9 +24,11 @@ import { Select } from '@/components/ui/Select';
 import { cn } from '@/utils/classNames';
 import { selectIsAuthenticated, useAuthStore } from '@/stores/authStore';
 import { CONTACT_CHANNELS } from '@/lib/companyContent';
-import { findTopic, searchFaqs, TOPICS } from '@/lib/supportContent';
+import { FAQS, findTopic, searchFaqs, TOPICS } from '@/lib/supportContent';
 import { DataRightsPanel } from './DataRightsPanel';
 import { paths } from '@/routes/paths';
+
+import heroImage from '@/assets/images/auth-login.jpg';
 
 /**
  * Support.
@@ -170,58 +172,96 @@ export const SupportPage = () => {
   const isFiltered = Boolean(query.trim() || topic);
 
   return (
-    <div className="mx-auto max-w-shell px-4 py-10 sm:px-6">
-      <header className="max-w-2xl">
-        <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-brand-700">Support</p>
-        <h1 className="mt-1.5 font-display text-[28px] font-semibold text-ink sm:text-[36px]">
-          How can we help?
-        </h1>
-        <p className="mt-2 text-[14px] leading-6 text-ink-soft">
-          Answers to what guests actually ask — bookings, payments, identity checks, and what happens when something
-          goes wrong mid-stay.
-        </p>
+    <div>
+      {/*
+        A brand band rather than bare text on the canvas. The photograph sits
+        at a tenth of its opacity: enough to give the block depth, not enough
+        to compete with the search field, which is the one thing on this page
+        most people came to use.
+      */}
+      <header className="relative overflow-hidden bg-brand-900 py-12 sm:py-14">
+        <img src={heroImage} alt="" className="absolute inset-0 size-full object-cover opacity-[0.12]" />
+        <div className="relative mx-auto max-w-shell px-4 sm:px-6">
+          <div className="max-w-2xl">
+            <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-brand-300">Support</p>
+            <h1 className="mt-2 font-display text-[30px] font-semibold text-white sm:text-[40px]">
+              How can we help?
+            </h1>
+            <p className="mt-2 text-[14px] leading-6 text-white/75">
+              Answers to what guests actually ask — bookings, payments, identity checks, and what happens when
+              something goes wrong mid-stay.
+            </p>
 
-        <div className="relative mt-5">
-          <Search
-            className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-ink-muted"
-            aria-hidden="true"
-          />
-          <input
-            type="search"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search help — deposits, cancelling, check-in…"
-            aria-label="Search help topics"
-            className="h-12 w-full rounded-full border border-line bg-surface pl-11 pr-4 text-[14px] text-ink shadow-card focus:border-brand-600 focus:outline-none"
-          />
+            <div className="relative mt-6">
+              <Search
+                className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-ink-muted"
+                aria-hidden="true"
+              />
+              <input
+                type="search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search help — deposits, cancelling, check-in…"
+                aria-label="Search help topics"
+                className="h-12 w-full rounded-full border border-line bg-surface pl-11 pr-4 text-[14px] text-ink shadow-raised focus:border-brand-600 focus:outline-none"
+              />
+            </div>
+          </div>
         </div>
       </header>
 
+      <div className="mx-auto max-w-shell px-4 py-10 sm:px-6">
       {/* ----------------------------------------------------------- topics */}
-      <div className="mt-6 flex flex-wrap gap-2">
+      {/*
+        Cards, not chips. Ten chips wrapped onto two rows and read as a tag
+        cloud; a card can carry how many answers sit behind it, which is what
+        makes the row scannable rather than decorative.
+      */}
+      <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         {TOPICS.map((entry) => {
           const Icon = TOPIC_ICONS[entry.icon] ?? CalendarCheck;
           const isActive = topic === entry.id;
+          const total = FAQS.filter((faq) => faq.topic === entry.id).length;
 
           return (
-            <button
-              key={entry.id}
-              type="button"
-              aria-pressed={isActive}
-              onClick={() => setTopic(isActive ? null : entry.id)}
-              className={cn(
-                'inline-flex items-center gap-2 rounded-full border px-3.5 py-2 text-[12.5px] transition-colors',
-                isActive
-                  ? 'border-brand-700 bg-brand-700 font-medium text-white'
-                  : 'border-line bg-surface text-ink-soft hover:border-brand-300 hover:text-brand-700',
-              )}
-            >
-              <Icon className="size-3.5" aria-hidden="true" />
-              {entry.label}
-            </button>
+            <li key={entry.id}>
+              <button
+                type="button"
+                aria-pressed={isActive}
+                onClick={() => setTopic(isActive ? null : entry.id)}
+                className={cn(
+                  'flex w-full items-start gap-3 rounded-card border p-3.5 text-left shadow-card transition-colors',
+                  isActive
+                    ? 'border-brand-700 bg-brand-700 text-white'
+                    : 'border-line bg-surface hover:border-brand-400',
+                )}
+              >
+                <span
+                  className={cn(
+                    'flex size-8 shrink-0 items-center justify-center rounded-lg',
+                    isActive ? 'bg-white/15' : 'bg-brand-50',
+                  )}
+                >
+                  <Icon className={cn('size-4', isActive ? 'text-white' : 'text-brand-600')} aria-hidden="true" />
+                </span>
+                <span className="min-w-0">
+                  <span
+                    className={cn(
+                      'block text-[12.5px] font-semibold leading-tight',
+                      isActive ? 'text-white' : 'text-ink',
+                    )}
+                  >
+                    {entry.label}
+                  </span>
+                  <span className={cn('mt-0.5 block text-[11px]', isActive ? 'text-white/70' : 'text-ink-muted')}>
+                    {total} answer{total === 1 ? '' : 's'}
+                  </span>
+                </span>
+              </button>
+            </li>
           );
         })}
-      </div>
+      </ul>
 
       <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_340px]">
         {/* -------------------------------------------------------- answers */}
@@ -247,7 +287,10 @@ export const SupportPage = () => {
           )}
 
           {grouped.length ? (
-            <div className="space-y-7">
+            /* On its own sheet. Hairline-separated rows floating on the tinted
+               canvas gave the answers no visual weight at all — the sidebar
+               cards read as the primary content instead. */
+            <div className="space-y-8 rounded-card border border-line bg-surface p-5 shadow-card sm:p-7">
               {grouped.map((group) => (
                 <section key={group.id} id={group.id} className="scroll-mt-24">
                   <h2 className="font-display text-[16px] font-semibold text-ink">{group.label}</h2>
@@ -339,6 +382,7 @@ export const SupportPage = () => {
 
           <ContactForm />
         </aside>
+      </div>
       </div>
     </div>
   );

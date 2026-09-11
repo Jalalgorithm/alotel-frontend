@@ -198,7 +198,23 @@ export const PolicyEmbed = ({ policyKey, name, className }) => {
         </div>
       )}
 
-      <div className={cn('gap-10 lg:grid lg:grid-cols-[240px_minmax(0,1fr)]', state !== 'ready' && 'hidden')}>
+      {/*
+        The whole document is centred and only as wide as it needs to be.
+        The sheet used to stretch the full shell while the prose inside it
+        stayed capped at its 68-character measure, which left several hundred
+        pixels of blank white beside every paragraph — the text looked shoved
+        against one edge of its own page.
+
+        686px is that measure plus the sheet's padding; add the contents
+        column and its gap when there is one.
+      */}
+      <div
+        className={cn(
+          'mx-auto gap-10 lg:grid',
+          hasToc ? 'lg:max-w-[966px] lg:grid-cols-[240px_minmax(0,1fr)]' : 'max-w-[686px]',
+          state !== 'ready' && 'hidden',
+        )}
+      >
         {/* Contents, lifted out of the article and pinned beside it. */}
         <aside className={cn('mb-8 lg:mb-0', !hasToc && 'hidden')}>
           <div className="policy-toc lg:sticky lg:top-24" ref={tocRef} />
@@ -206,12 +222,7 @@ export const PolicyEmbed = ({ policyKey, name, className }) => {
 
         {/* The document gets its own sheet of white. Legal prose set directly
             on the tinted canvas reads as washed out over this many words. */}
-        <div
-          className={cn(
-            'rounded-card border border-line bg-surface p-5 shadow-card sm:p-8',
-            !hasToc && 'lg:col-span-2',
-          )}
-        >
+        <div className="rounded-card border border-line bg-surface p-5 shadow-card sm:p-8">
           {sectionCount > 2 && (
             <div className="mb-5 flex items-center justify-between gap-3 border-b border-line pb-3">
               <p className="text-[12px] text-ink-muted">

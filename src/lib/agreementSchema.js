@@ -1,3 +1,5 @@
+import { toContractSummary } from '@/lib/bookingSchema';
+
 /**
  * Which agreement a stay falls under, and how the API's contract payloads map
  * into the shape the guest UI renders.
@@ -83,19 +85,33 @@ export const resolveAgreement = ({ nights = 0, location, country, isCommercial =
 /* API payloads                                                                */
 /* -------------------------------------------------------------------------- */
 
-/** `GET /contracts/booking/{bookingId}/text/` */
+/**
+ * `GET /contracts/booking/{bookingId}/text/`
+ *
+ * The terms this guest is asked to read for this booking, already filled in
+ * with their name, dates and figures. `mode` says what they do with it:
+ * `click_accept` for stays under the contract threshold, `signature` for the
+ * rest. `source` says where the words came from — a fresh render of the
+ * published template, the copy stored when they accepted, or the copy stored
+ * on the contract that was sent.
+ */
 export const toContractText = (raw) => {
   if (!raw) return null;
 
   return {
-    contractId: raw.contract_id,
     bookingId: raw.booking_id,
-    status: raw.status,
-    templateId: raw.template_id ?? null,
-    templateName: raw.template_name ?? null,
-    templateVersion: raw.template_version ?? null,
-    /** The raw template body — no placeholder substitution, per the API docs. */
+    mode: raw.mode,
+    source: raw.source,
+    region: raw.region,
+    stayType: raw.stay_type,
+    template: raw.template
+      ? { id: raw.template.id, name: raw.template.name, version: raw.template.version }
+      : null,
     content: raw.content ?? '',
+    accepted: raw.accepted
+      ? { acceptedAt: raw.accepted.accepted_at ?? null, templateVersion: raw.accepted.template_version ?? null }
+      : null,
+    contract: toContractSummary(raw.contract),
   };
 };
 
@@ -120,8 +136,9 @@ export const CONTRACT_STATUS_LABELS = {
   not_sent: 'Not issued yet',
   sent: 'Awaiting your signature',
   signed: 'Signed',
-  expired: 'Expired',
+  expired: 'Signing link expired',
   declined: 'Declined',
+  cancelled: 'Cancelled',
 };
 
 /**
@@ -143,14 +160,20 @@ export const toAgreementState = (booking, contract = null) => {
   });
 
   const needsSignature = Boolean(booking.contractRequired);
+  /* The booking detail now carries the contract summary itself; a separately
+     fetched status is only a fallback for older payloads. */
+  const current = booking.contract ?? contract;
 
   return {
     ...agreement,
+    /* The name the guest actually agreed to, when the server recorded one. */
+    name: booking.agreement?.templateName ?? agreement.name,
+    templateVersion: booking.agreement?.templateVersion ?? null,
     needsSignature,
-    isAccepted: needsSignature ? contract?.status === 'signed' : Boolean(booking.agreementAccepted),
-    acceptedAt: needsSignature ? contract?.signedAt ?? null : booking.agreementAcceptedAt ?? null,
-    contractStatus: contract?.status ?? null,
-    contractStatusLabel: contract ? CONTRACT_STATUS_LABELS[contract.status] ?? contract.status : null,
-    signedDocumentUrl: contract?.signedDocumentUrl ?? null,
+    isAccepted: needsSignature ? current?.status === 'signed' : Boolean(booking.agreementAccepted),
+    acceptedAt: needsSignature ? current?.signedAt ?? null : booking.agreementAcceptedAt ?? null,
+    contractId: current?.contractId ?? null,
+    contractStatus: current?.status ?? null,
+    contractStatusLabel: current ? CONTRACT_STATUS_LABELS[current.status] ?? current.status : null,
   };
 };

@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2, Circle, Clock, Home, Landmark, ShieldCheck, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -11,18 +11,21 @@ import { getErrorMessage } from '@/utils/errors';
 import { queryKeys } from '@/lib/queryKeys';
 import { useAuth } from '@/features/auth';
 import { bookingService } from '../services/bookingService';
+import { useFullKycStatus } from '../hooks/useBookingMutations';
 
 /**
- * Full verification for a long stay.
+ * Full verification for a stay of 183 nights or more.
  *
- * A stay past the contract threshold is closer to a tenancy than a holiday
- * let, so it carries the checks a letting agent runs: anti-money-laundering,
- * address, credit, and right-to-rent where the market demands it.
+ * A stay that long is closer to a tenancy than a holiday let, so it carries
+ * the checks a letting agent runs: anti-money-laundering, address, credit,
+ * and right-to-rent where the market demands it.
  *
  * Each of those moves independently server-side, so each is shown
- * independently. Collapsing them into the overall status — which is what a
- * single spinner would do — hides exactly the thing a guest needs when two
- * checks pass and one fails: which one, and whether it is theirs to fix.
+ * independently. Collapsing them into the overall status hides exactly the
+ * thing a guest needs when two checks pass and one fails: which one.
+ *
+ * Approval is per booking — a check approved for an earlier stay does not
+ * clear this one — and is a manual review by our team.
  *
  * There is no mock path here. A verification flow that pretends to pass is
  * worse than one that is absent.
@@ -66,33 +69,25 @@ const CheckRow = ({ icon: Icon, title, blurb, state }) => {
   );
 };
 
-export const FullKycPanel = ({ booking, className }) => {
+export const FullKycPanel = ({ booking, className, poll = false }) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const guestId = user?.id ?? null;
+  const isRequired = booking?.kycLevelRequired === 'full';
 
-  const { data: check, isLoading } = useQuery({
-    queryKey: queryKeys.bookings.fullKyc(guestId),
-    queryFn: () => bookingService.getFullKycStatus(guestId).catch(() => null),
-    enabled: Boolean(guestId) && Boolean(booking?.contractRequired),
-    /* Checks clear asynchronously at the provider, so this refreshes while a
-       guest is watching rather than making them reload to find out. */
-    refetchInterval: (query) => (query.state.data?.status === 'approved' ? false : 60_000),
-    retry: false,
-  });
+  const { data: check, isLoading } = useFullKycStatus(guestId, booking?.id, { enabled: isRequired, poll });
 
   const start = useMutation({
     mutationFn: () => bookingService.startFullKyc({ bookingId: booking.id }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.bookings.fullKyc(guestId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.bookings.fullKyc(guestId, booking.id) });
       toast.success('Verification started', 'We will email you when each check completes.');
     },
     onError: (error) => toast.error('Could not start verification', getErrorMessage(error)),
   });
 
-  /* Only long stays carry these checks; a short stay's Stripe Identity pass is
-     handled in the booking flow instead. */
-  if (!booking?.contractRequired) return null;
+  /* Shorter stays use the Stripe Identity check in the booking flow instead. */
+  if (!isRequired) return null;
 
   if (isLoading) return <Skeleton className={cn('h-44 w-full rounded-card', className)} />;
 
@@ -110,8 +105,7 @@ export const FullKycPanel = ({ booking, className }) => {
             Verification for this stay
           </h2>
           <p className="mt-1 text-[12.5px] leading-5 text-ink-soft">
-            Stays over six months are treated as a tenancy, so they carry the same checks a letting agent runs. You
-            only do this once per booking.
+            Stays of six months or more are treated as a tenancy, so they carry the same checks a letting agent runs.
           </p>
         </div>
 
@@ -155,45 +149,34 @@ export const FullKycPanel = ({ booking, className }) => {
               state={check.creditStatus}
             />
 
-            {/* Only some markets require it, and the server decides which. */}
+            {/* Only some markets require it, and the server decides which. It
+                has no separate status, so it clears with the overall approval. */}
             {check.rightToRentRequired && (
               <CheckRow
                 icon={ShieldCheck}
                 title="Right to rent"
                 blurb="Required by law for residential lets in this market."
-                state={check.rightToRentStatus ?? 'pending'}
+                state={isApproved ? 'passed' : status === 'rejected' ? 'failed' : 'pending'}
               />
             )}
           </ul>
 
           {status === 'rejected' && (
-            <Alert variant="error" className="mt-3" title="One or more checks did not pass">
-              {check.detail || 'Message us below and a person will look at this rather than the automated check.'}
+            <Alert variant="error" className="mt-3" title="Your checks were not approved">
+              {check.reviewNotes || 'Message us from your booking and a person will look at this.'}
             </Alert>
           )}
 
-          {status === 'in_review' && (
+          {(status === 'pending' || status === 'in_review') && (
             <p className="mt-3 text-[11.5px] text-ink-muted">
-              Everything is with our team for a final look. Nothing more is needed from you.
+              Our team approves each check once the results are in. Nothing more is needed from you right now.
             </p>
           )}
 
           {isApproved && (
             <p className="mt-3 inline-flex items-center gap-1.5 text-[12.5px] text-brand-700">
               <CheckCircle2 className="size-4" aria-hidden="true" />
-              Verified{check.reviewedAt ? ` on ${formatDate(check.reviewedAt)}` : ''} — nothing outstanding.
-            </p>
-          )}
-
-          {/*
-            The referencing fee is a separate payable step, not part of the
-            checks above. Shown only when it is still outstanding, so an
-            approved guest is not invited to pay again.
-          */}
-          {!isApproved && !check.referencingFeePaid && (
-            <p className="mt-3 rounded-md bg-gold/10 p-2.5 text-[11.5px] leading-4 text-ink-soft">
-              A referencing fee applies to this stay. We will send a payment link once your checks are underway — it is
-              not taken upfront.
+              Approved{check.completedAt ? ` on ${formatDate(check.completedAt)}` : ''} — nothing outstanding.
             </p>
           )}
         </>

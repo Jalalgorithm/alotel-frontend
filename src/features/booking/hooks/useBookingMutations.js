@@ -176,12 +176,15 @@ export const useTaxRules = () =>
  * Resolves to null for a short stay, where no contract is issued and the
  * checkbox applies instead — that is a normal state, not an error.
  */
-export const useContractText = (bookingId) =>
+export const useContractText = (bookingId, { refetchInterval = false } = {}) =>
   useQuery({
     queryKey: queryKeys.bookings.contractText(bookingId),
     queryFn: () => bookingService.getContractText(bookingId),
     enabled: Boolean(bookingId),
-    staleTime: 1000 * 60 * 5,
+    /* Short: a template can be published, or a contract signed, while the
+       guest has the page open. */
+    staleTime: 1000 * 30,
+    refetchInterval,
   });
 
 /** Signature status, once a contract exists to have a status. */
@@ -203,9 +206,17 @@ export const useAcceptAgreement = () => {
   const queryClient = useQueryClient();
 
   const mutation = useMutation({
-    mutationFn: (bookingId) => bookingService.acceptAgreement(bookingId),
-    onSuccess: (_result, bookingId) => {
+    /* `terms` is `{ templateId, templateVersion }`, or `{ fallbackContent }`
+       while nothing is published for the stay. */
+    mutationFn: ({ bookingId, ...terms }) => bookingService.acceptAgreement(bookingId, terms),
+    onSuccess: (result, { bookingId }) => {
+      if (result?.termsChanged) {
+        /* Not an error: the guest is shown the newer terms to read instead. */
+        queryClient.setQueryData(queryKeys.bookings.contractText(bookingId), result.latest);
+        return;
+      }
       queryClient.invalidateQueries({ queryKey: queryKeys.bookings.detail(bookingId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.bookings.contractText(bookingId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.bookings.list() });
       queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.summary() });
     },
@@ -323,4 +334,90 @@ export const useStartIdentity = () => {
     isPending: mutation.isPending,
     error: mutation.error,
   };
+};
+
+/* -------------------------------------------------------------------------- */
+/* Verification and signing                                                    */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The guest's identity check, as the server sees it.
+ *
+ * Pass `poll` while a submitted check is waiting on Stripe: each read makes
+ * the server re-ask Stripe, so polling is how "submitted" becomes a decision.
+ * Polling stops on its own once the answer is final.
+ */
+export const useIdentityStatus = (guestId, { enabled = true, poll = false } = {}) =>
+  useQuery({
+    queryKey: queryKeys.bookings.identityStatus(guestId),
+    queryFn: () => bookingService.getIdentityStatus(guestId),
+    enabled: Boolean(guestId) && enabled,
+    refetchInterval: (query) => {
+      if (!poll) return false;
+      const status = query.state.data?.status;
+      return status === 'verified' || status === 'failed' ? false : 4000;
+    },
+    retry: false,
+  });
+
+/**
+ * The guest's identity attempts — why the last one failed, and how many there
+ * have been. Only worth fetching once something has gone wrong.
+ */
+export const useIdentityAttempts = (guestId, { enabled = true } = {}) =>
+  useQuery({
+    queryKey: queryKeys.bookings.identityAttempts(guestId),
+    queryFn: () => bookingService.getIdentityAttempts(guestId),
+    enabled: Boolean(guestId) && enabled,
+    retry: false,
+  });
+
+/**
+ * The full check (AML, address, credit) for one booking. Null until started.
+ *
+ * Approval is a manual review, so this polls gently rather than quickly.
+ */
+export const useFullKycStatus = (guestId, bookingId, { enabled = true, poll = false } = {}) =>
+  useQuery({
+    queryKey: queryKeys.bookings.fullKyc(guestId, bookingId),
+    queryFn: () => bookingService.getFullKycStatus(guestId, bookingId),
+    enabled: Boolean(guestId && bookingId) && enabled,
+    refetchInterval: (query) => {
+      if (!poll) return false;
+      const status = query.state.data?.status;
+      return status === 'approved' || status === 'rejected' ? false : 20_000;
+    },
+    retry: false,
+  });
+
+/**
+ * Create the long-stay contract, or pick up the one already out for signature.
+ * Refreshes the booking so its contract summary is current.
+ */
+export const useStartContract = () => {
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: (bookingId) => bookingService.startContract(bookingId),
+    onSuccess: (_result, bookingId) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.bookings.detail(bookingId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.bookings.contractText(bookingId) });
+    },
+  });
+
+  return { startContractAsync: mutation.mutateAsync, isPending: mutation.isPending };
+};
+
+/** Email the signing link again. Errors are handled by the caller. */
+export const useResendContract = (bookingId) => {
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: (contractId) => bookingService.resendContract(contractId),
+    onSuccess: () => {
+      if (bookingId) queryClient.invalidateQueries({ queryKey: queryKeys.bookings.detail(bookingId) });
+    },
+  });
+
+  return { resendContractAsync: mutation.mutateAsync, isPending: mutation.isPending };
 };

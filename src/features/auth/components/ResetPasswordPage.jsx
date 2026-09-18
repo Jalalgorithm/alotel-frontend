@@ -47,7 +47,11 @@ export const ResetPasswordPage = () => {
   // rather than failing on submit.
   if (!uid || !token) {
     return (
-      <AuthLayout image={HERO_IMAGE} imageAlt="Bathroom in an Alotel Spaces residence">
+      <AuthLayout
+        image={HERO_IMAGE}
+        imageAlt="Bedroom in an Alotel Spaces residence"
+        caption="Choose a new password and you are back in."
+      >
         <h1 className="font-display text-[26px] font-bold">This reset link is incomplete</h1>
         <p className="mt-1.5 text-sm text-ink-soft">
           Open the link directly from the email we sent, or request a new one.
@@ -60,7 +64,11 @@ export const ResetPasswordPage = () => {
   }
 
   return (
-    <AuthLayout image={HERO_IMAGE} imageAlt="Bathroom in an Alotel Spaces residence">
+    <AuthLayout
+      image={HERO_IMAGE}
+      imageAlt="Bedroom in an Alotel Spaces residence"
+      caption="Choose a new password and you are back in."
+    >
       <h1 className="font-display text-[26px] font-bold">Reset your password</h1>
       <p className="mt-1.5 text-sm text-ink-soft">Enter your new password below.</p>
 

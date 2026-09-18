@@ -45,21 +45,30 @@ export const Input = forwardRef(function Input(
             'placeholder:text-ink-muted focus:border-brand-600 focus:outline-none',
             'focus:ring-2 focus:ring-brand-600/15 disabled:bg-black/5 disabled:text-ink-muted',
             leftIcon && 'pl-10',
-            isPassword && 'pr-10',
+            isPassword && 'pr-12',
             error ? 'border-danger focus:border-danger focus:ring-danger/15' : 'border-line',
             className,
           )}
           {...props}
         />
 
+        {/* A 32px target with its own hover and focus state: the old one was a
+            bare 16px icon with no affordance, easy to miss and hard to hit. */}
         {isPassword && (
           <button
             type="button"
             onClick={() => setIsRevealed((value) => !value)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-muted transition-colors hover:text-ink"
+            className={cn(
+              'absolute right-1.5 top-1/2 grid size-8 -translate-y-1/2 place-items-center rounded-md',
+              'text-ink-muted transition-colors hover:bg-brand-50 hover:text-brand-700',
+              'focus:outline-none focus-visible:bg-brand-50 focus-visible:text-brand-700',
+              'focus-visible:ring-2 focus-visible:ring-brand-600/25',
+            )}
             aria-label={isRevealed ? 'Hide password' : 'Show password'}
+            aria-pressed={isRevealed}
+            title={isRevealed ? 'Hide password' : 'Show password'}
           >
-            {isRevealed ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+            {isRevealed ? <EyeOff className="size-4" aria-hidden="true" /> : <Eye className="size-4" aria-hidden="true" />}
           </button>
         )}
       </div>

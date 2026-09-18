@@ -96,7 +96,25 @@ export const toBooking = (raw) => {
     agreementAccepted: Boolean(raw.agreement_accepted),
     agreementAcceptedAt: raw.agreement_accepted_at ?? null,
     isCommercial: Boolean(raw.is_commercial),
+    /** `none` | `basic` (Stripe Identity) | `full` (AML, address, credit). */
     kycLevelRequired: raw.kyc_level_required ?? null,
+
+    /**
+     * Which terms the guest agreed to, as recorded server-side. Present on the
+     * detail endpoint; list rows omit it.
+     */
+    agreement: raw.agreement
+      ? {
+          mode: raw.agreement.mode,
+          accepted: Boolean(raw.agreement.accepted),
+          acceptedAt: raw.agreement.accepted_at ?? null,
+          templateName: raw.agreement.template_name ?? null,
+          templateVersion: raw.agreement.template_version ?? null,
+        }
+      : null,
+
+    /** The long-stay contract, when one has been issued. */
+    contract: toContractSummary(raw.contract),
 
     lineItems: (raw.line_items ?? []).map((item) => ({
       id: item.id,
@@ -129,6 +147,24 @@ export const toBooking = (raw) => {
     cancellation: toCancellation(raw),
   };
 };
+
+/**
+ * A contract's signing state, as the booking detail, the terms endpoint and
+ * the start-signing endpoint all report it.
+ */
+export const toContractSummary = (raw) =>
+  raw
+    ? {
+        contractId: raw.contract_id,
+        status: raw.status,
+        isEmbedded: Boolean(raw.is_embedded),
+        sentAt: raw.sent_at ?? null,
+        viewedAt: raw.viewed_at ?? null,
+        signedAt: raw.signed_at ?? null,
+        expiresAt: raw.expires_at ?? null,
+        lastEmailedAt: raw.last_emailed_at ?? null,
+      }
+    : null;
 
 /** The event that moved a booking to cancelled or refunded, if any. */
 const toCancellation = (raw) => {

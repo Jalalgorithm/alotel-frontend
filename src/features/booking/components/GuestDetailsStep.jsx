@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate } from 'react-router-dom';
 import { AlertTriangle, Bath, BedDouble, CalendarDays, Loader2, MapPin, Users } from 'lucide-react';
 import { Image } from '@/components/ui/Image';
+import { PhoneInput } from '@/components/ui/PhoneInput';
 import { Input, Textarea } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { StepShell, StepActions } from './StepShell';
@@ -184,6 +185,7 @@ export const GuestDetailsStep = ({
 
   const {
     register,
+    control,
     handleSubmit,
     watch,
     reset,
@@ -281,12 +283,21 @@ export const GuestDetailsStep = ({
               error={errors.email?.message}
               {...register('email')}
             />
-            <Input
-              label="Phone Number"
-              type="tel"
-              placeholder="Please type here…"
-              error={errors.phone?.message}
-              {...register('phone')}
+            {/* Same control as sign-up, so a number entered in either place
+                reaches the API in the same shape. */}
+            <Controller
+              name="phone"
+              control={control}
+              render={({ field }) => (
+                <PhoneInput
+                  label="Phone number"
+                  value={field.value}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                  name={field.name}
+                  error={errors.phone?.message}
+                />
+              )}
             />
             <Textarea
               label="Special requests (optional)"

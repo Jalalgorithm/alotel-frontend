@@ -61,7 +61,11 @@ export const LoginPage = () => {
     );
 
   return (
-    <AuthLayout image={HERO_IMAGE} imageAlt="Bedroom in an Alotel Spaces residence">
+    <AuthLayout
+      image={HERO_IMAGE}
+      imageAlt="Living room in an Alotel Spaces residence"
+      caption="Premium furnished stays, from a weekend to a year."
+    >
       <h1 className="font-display text-[26px] font-bold">Welcome back</h1>
       <p className="mt-1.5 text-sm text-ink-soft">Login to access and manage your bookings.</p>
 

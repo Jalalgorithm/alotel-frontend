@@ -30,6 +30,7 @@ import { formatCurrency, formatDate } from '@/utils/format';
 import { getErrorMessage } from '@/utils/errors';
 import { paths } from '@/routes/paths';
 import { toAgreementState } from '@/lib/agreementSchema';
+import { OPEN_STATUSES } from '@/lib/bookingSchema';
 import { bookingService } from '../services/bookingService';
 import { useAuth } from '@/features/auth';
 import { useProperty } from '@/features/properties';
@@ -44,8 +45,6 @@ import { printReceipt } from '../receiptDocument';
 import {
   useBooking,
   useBookingMessages,
-  useContractStatus,
-  useContractText,
   useBookingReceipt,
   useBookingTimeline,
   useCancelBooking,
@@ -53,6 +52,7 @@ import {
   usePaymentOptions,
   useSendMessage,
 } from '../hooks/useBookingMutations';
+import { NEXT_STEP_COPY, useBookingReadiness } from '../hooks/useBookingReadiness';
 
 /** Common reasons, offered as one tap so the requirement is not a chore. */
 const CANCEL_REASONS = [
@@ -193,8 +193,8 @@ export const BookingDetailPage = () => {
   const { data: timeline } = useBookingTimeline(bookingId);
   const { data: receipt } = useBookingReceipt(bookingId);
   const { data: property } = useProperty(booking?.propertyId);
-  const { data: contractText } = useContractText(bookingId);
-  const { data: contract } = useContractStatus(contractText?.contractId);
+  /* What stands between this booking and payment — identity, then the terms. */
+  const readiness = useBookingReadiness(booking);
   const { data: paymentOptions } = usePaymentOptions(booking?.currency ?? 'GBP');
 
   const { initiatePaymentAsync, isPending: isPaying } = useInitiatePayment();
@@ -211,6 +211,7 @@ export const BookingDetailPage = () => {
     setCancelReason('');
   };
   const [payError, setPayError] = useState('');
+  const [isOpeningCopy, setIsOpeningCopy] = useState(false);
 
   if (isLoading) {
     return (
@@ -250,16 +251,54 @@ export const BookingDetailPage = () => {
   const needsPayment = booking.status === 'pending_payment';
   const canCancel = !['cancelled', 'refunded', 'completed'].includes(booking.status);
   const isStayable = ['active', 'completed'].includes(booking.status);
-  const isIdVerified = Boolean(timeline?.steps?.find((step) => step.id === 'id_verified')?.isComplete);
+  const isOpen = OPEN_STATUSES.includes(booking.status);
 
-  const agreement = toAgreementState(
-    { ...booking, propertyLocation: property?.location, propertyCountry: property?.country },
-    contract,
-  );
+  const agreement = toAgreementState({
+    ...booking,
+    propertyLocation: property?.location,
+    propertyCountry: property?.country,
+  });
+
+  /** The next thing to do before payment, as a button label and a reason. */
+  const nextStepCopy =
+    readiness.nextStep === 'agreement'
+      ? NEXT_STEP_COPY[agreement.needsSignature ? 'signature' : 'agreement']
+      : NEXT_STEP_COPY[readiness.nextStep] ?? null;
+
+  const verification = readiness.verification;
+  const verificationLine = !verification
+    ? 'Checking…'
+    : verification.status === 'not_required'
+      ? 'No identity check is needed for this stay'
+      : verification.isVerified
+        ? 'Identity verified'
+        : verification.status === 'pending'
+          ? 'Checking your documents'
+          : verification.status === 'failed'
+            ? 'Your last attempt did not pass'
+            : 'Not verified yet';
+
+  /** A short-lived link to the signed PDF, fetched on click. */
+  const openSignedCopy = async () => {
+    const tab = window.open('', '_blank');
+    setIsOpeningCopy(true);
+    try {
+      const { fileUrl } = await bookingService.getContractDocument(agreement.contractId);
+      if (tab) tab.location.href = fileUrl;
+      else window.location.assign(fileUrl);
+    } catch (copyError) {
+      tab?.close();
+      setPayError(getErrorMessage(copyError));
+    } finally {
+      setIsOpeningCopy(false);
+    }
+  };
 
   /** Re-open checkout for a booking that never got paid. */
   const retryPayment = async () => {
     setPayError('');
+    /* Payment only opens once identity and the terms are done. */
+    if (!readiness.canPay) return;
     try {
       const intent = await initiatePaymentAsync({
         bookingId: booking.id,
@@ -359,18 +398,28 @@ export const BookingDetailPage = () => {
               Your dates are held, but the stay is not confirmed until payment completes. Any nights can still be taken
               by another guest until then.
             </p>
+            {!readiness.isLoading && !readiness.canPay && nextStepCopy && (
+              <p className="mt-2 font-medium text-ink">{nextStepCopy.reason}</p>
+            )}
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              <Button
-                size="sm"
-                onClick={retryPayment}
-                isLoading={isPaying}
-                leftIcon={<CreditCard className="size-3.5" aria-hidden="true" />}
-              >
-                {booking.pricing ? `Pay ${formatCurrency(booking.pricing.totalDueNow, booking.currency)}` : 'Retry payment'}
-              </Button>
-              <Button size="sm" variant="secondary" to={paths.booking(booking.propertyId)}>
-                Open checkout
-              </Button>
+              {readiness.isLoading ? (
+                <Button size="sm" disabled isLoading>
+                  Checking your booking
+                </Button>
+              ) : readiness.canPay ? (
+                <Button
+                  size="sm"
+                  onClick={retryPayment}
+                  isLoading={isPaying}
+                  leftIcon={<CreditCard className="size-3.5" aria-hidden="true" />}
+                >
+                  {booking.pricing ? `Pay ${formatCurrency(booking.pricing.totalDueNow, booking.currency)}` : 'Retry payment'}
+                </Button>
+              ) : (
+                <Button size="sm" to={paths.completeBooking(booking.id)}>
+                  {nextStepCopy?.action ?? 'Continue booking'}
+                </Button>
+              )}
             </div>
             {payError && <p className="mt-2 text-[12px] text-danger">{payError}</p>}
           </Alert>
@@ -543,9 +592,20 @@ export const BookingDetailPage = () => {
               */}
               {agreement.needsSignature && !agreement.isAccepted && (
                 <p className="mt-2.5 rounded-md bg-gold/10 p-2.5 text-[11.5px] leading-4 text-ink-soft">
-                  This stay needs a signed agreement before check-in can be completed. We will email the signing link —
-                  message us below if it has not arrived.
+                  This stay needs a signed contract before it can be paid for. You can sign it here in the app — the
+                  link is also in your email.
                 </p>
+              )}
+
+              {agreement.needsSignature && !agreement.isAccepted && isOpen && (
+                <Button
+                  size="sm"
+                  fullWidth
+                  className="mt-3"
+                  to={readiness.verification?.isVerified ? paths.signBooking(booking.id) : paths.completeBooking(booking.id)}
+                >
+                  {readiness.verification?.isVerified ? 'Sign contract' : 'Verify identity to sign'}
+                </Button>
               )}
 
               {agreement.needsSignature && agreement.isAccepted && (
@@ -556,19 +616,19 @@ export const BookingDetailPage = () => {
 
               {/* Only offered when the guest can actually act on it. */}
               {!agreement.isAccepted && !agreement.needsSignature && needsPayment && (
-                <Button size="sm" fullWidth className="mt-3" to={paths.booking(booking.propertyId)}>
-                  Review and agree
+                <Button size="sm" fullWidth className="mt-3" to={paths.completeBooking(booking.id)}>
+                  {readiness.verification?.isVerified ? 'Review and agree' : 'Verify identity to continue'}
                 </Button>
               )}
 
-              {agreement.signedDocumentUrl && (
+              {agreement.contractStatus === 'signed' && agreement.contractId && (
                 <Button
                   size="sm"
+                  variant="secondary"
                   fullWidth
                   className="mt-3"
-                  href={agreement.signedDocumentUrl}
-                  target="_blank"
-                  rel="noreferrer"
+                  onClick={openSignedCopy}
+                  isLoading={isOpeningCopy}
                 >
                   Open signed contract
                 </Button>
@@ -582,17 +642,22 @@ export const BookingDetailPage = () => {
               and showing "Not verified yet" beside a panel tracking three
               separate checks would read as a contradiction.
             */}
-            {booking.contractRequired ? (
+            {booking.kycLevelRequired === 'full' ? (
               <FullKycPanel booking={booking} />
             ) : (
               <Panel title="Verification" subtitle="Identity checks for this stay.">
-                <p className="flex items-center gap-2 text-[12.5px] text-ink-soft">
+                <p
+                  className={cn(
+                    'flex items-center gap-2 text-[12.5px]',
+                    verification?.status === 'failed' ? 'text-danger' : 'text-ink-soft',
+                  )}
+                >
                   <ShieldCheck className="size-4 shrink-0 text-brand-600" aria-hidden="true" />
-                  {isIdVerified ? 'Identity verified' : 'Not verified yet'}
+                  {verificationLine}
                 </p>
-                {!isIdVerified && (
-                  <Button size="sm" fullWidth className="mt-3" to={paths.booking(booking.propertyId)}>
-                    Verify identity
+                {verification && !verification.isVerified && isOpen && (
+                  <Button size="sm" fullWidth className="mt-3" to={paths.completeBooking(booking.id)}>
+                    {verification.status === 'pending' ? 'Check progress' : 'Verify identity'}
                   </Button>
                 )}
               </Panel>

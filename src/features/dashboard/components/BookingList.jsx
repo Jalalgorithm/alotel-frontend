@@ -138,13 +138,15 @@ export const BookingList = ({ bookings = [] }) => {
                   Book again
                 </Button>
               )}
+              {/* Lands on the first step still outstanding — verification and
+                  the terms come before payment, so this never promises payment. */}
               {booking.status === 'pending_payment' && (
                 <Button
                   size="sm"
-                  to={paths.bookingDetail(booking.id)}
+                  to={paths.completeBooking(booking.id)}
                   leftIcon={<CreditCard className="size-3.5" aria-hidden="true" />}
                 >
-                  Complete payment
+                  Continue booking
                 </Button>
               )}
               <Button size="sm" variant="secondary" to={paths.bookingDetail(booking.id)}>

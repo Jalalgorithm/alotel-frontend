@@ -1,6 +1,6 @@
 import { apiClient } from '@/lib/apiClient';
 import { toContractStatus, toContractText } from '@/lib/agreementSchema';
-import { toInspection } from '@/lib/bookingSchema';
+import { toContractSummary, toInspection } from '@/lib/bookingSchema';
 import { env } from '@/lib/env';
 import { authStorage, jsonStorage } from '@/lib/storage';
 import { ApiError } from '@/utils/errors';
@@ -128,9 +128,11 @@ const mockBookings = {
     return [];
   },
 
+  /* Mock mode has no templates, so it behaves like an unpublished cell and
+     the agreement step shows its built-in terms. */
   async contractText() {
     await delay(250);
-    return null;
+    return { state: 'unpublished' };
   },
 
   async inspection() {
@@ -150,7 +152,31 @@ const mockBookings = {
 
   async acceptAgreement(bookingId) {
     await delay(300);
-    return { bookingId, agreementAccepted: true, agreementAcceptedAt: new Date().toISOString() };
+    return {
+      bookingId,
+      agreementAccepted: true,
+      agreementAcceptedAt: new Date().toISOString(),
+      template: null,
+      termsChanged: false,
+    };
+  },
+
+  /* Signing needs Dropbox Sign; there is nothing honest to fake here. */
+  async startContract() {
+    await delay(300);
+    throw new ApiError('Signing is not available in mock mode.', 502);
+  },
+
+  async contractSignUrl() {
+    throw new ApiError('Signing is not available in mock mode.', 502);
+  },
+
+  async resendContract() {
+    throw new ApiError('Signing is not available in mock mode.', 502);
+  },
+
+  async contractDocument() {
+    throw new ApiError('Signing is not available in mock mode.', 502);
   },
 
   async sendMessage(bookingId, body) {
@@ -223,7 +249,12 @@ const mockBookings = {
 
   async identityStatus() {
     await delay(200);
-    return { status: 'verified' };
+    return { status: 'verified', verifiedAt: new Date().toISOString(), validUntil: null };
+  },
+
+  async identityAttempts() {
+    await delay(150);
+    return { attempts: 1, failedAttempts: 0, lastFailure: null };
   },
 
   async taxRules() {
@@ -231,6 +262,13 @@ const mockBookings = {
     return [];
   },
 };
+
+/**
+ * The machine-readable `code` the contract and verification endpoints send
+ * beside their message, e.g. `no_published_template`. Components branch on
+ * this rather than on wording, which the backend is free to change.
+ */
+export const errorCode = (error) => error?.response?.data?.code ?? error?.data?.code ?? null;
 
 /* -------------------------------------------------------------------------- */
 /* Real API                                                                    */
@@ -283,18 +321,25 @@ const realBookings = {
   },
 
   /**
-   * The agreement text for a booking, straight from the server.
+   * The terms for a booking, filled in by the server.
    *
-   * 404 means no contract has been issued — normal for a short stay, which is
-   * covered by the checkbox instead — so it resolves to null rather than
-   * throwing and blanking the page.
+   * Resolves to one of three states rather than throwing for the two that are
+   * part of normal operation:
+   *  - `ready` — the text to show, plus the template it came from
+   *  - `unpublished` — nothing is published for this region and stay length
+   *    yet, so the agreement step falls back to its built-in terms
+   *  - `render_failed` — a template is published but could not be filled in
+   *    for this booking, which staff have to fix
+   * Anything else (not found, not the owner) still throws.
    */
   async contractText(bookingId) {
     try {
       const { data } = await apiClient.get(`/contracts/booking/${bookingId}/text/`);
-      return toContractText(data);
+      return { state: 'ready', ...toContractText(data) };
     } catch (error) {
-      if (error?.status === 404 || error?.response?.status === 404) return null;
+      const code = errorCode(error);
+      if (code === 'no_published_template') return { state: 'unpublished' };
+      if (code === 'template_render_failed') return { state: 'render_failed' };
       throw error;
     }
   },
@@ -305,18 +350,105 @@ const realBookings = {
   },
 
   /**
-   * Record that the guest accepted the booking agreement.
+   * Record that the guest accepted the terms.
    *
-   * The API refuses this for stays that need a signed contract, so the caller
-   * must only offer the checkbox when `contractRequired` is false.
+   * Sends the template and version they were shown, so the server stores a
+   * copy of exactly those words. While nothing is published for the stay, the
+   * built-in terms are sent as `fallback_content` instead.
+   *
+   * If a newer version was published while the guest was reading, the server
+   * answers 409 `terms_changed` with the new text. That is returned rather
+   * than thrown, because the right response is to show the new terms, not an
+   * error.
+   *
+   * The API refuses this for stays that need a signed contract.
    */
-  async acceptAgreement(bookingId) {
-    const { data } = await apiClient.post(`/bookings/${bookingId}/accept-agreement/`);
+  async acceptAgreement(bookingId, { templateId = null, templateVersion = null, fallbackContent = null } = {}) {
+    const body = templateId
+      ? { template_id: templateId, template_version: templateVersion }
+      : { template_id: null, fallback_content: fallbackContent };
+
+    try {
+      const { data } = await apiClient.post(`/bookings/${bookingId}/accept-agreement/`, body);
+      return {
+        bookingId: data.booking_id,
+        agreementAccepted: Boolean(data.agreement_accepted),
+        agreementAcceptedAt: data.agreement_accepted_at ?? null,
+        template: data.template ?? null,
+        termsChanged: false,
+      };
+    } catch (error) {
+      if (errorCode(error) === 'terms_changed') {
+        const latest = error.response?.data?.latest;
+        return {
+          termsChanged: true,
+          latest: latest ? { state: 'ready', ...toContractText(latest) } : { state: 'unpublished' },
+        };
+      }
+      throw error;
+    }
+  },
+
+  /**
+   * Create the long-stay contract, or return the one already awaiting
+   * signature. Safe to call every time the guest reaches the step.
+   *
+   * An already-signed contract comes back as `alreadySigned` rather than an
+   * error, since it means the guest can move on.
+   */
+  async startContract(bookingId) {
+    try {
+      const { data } = await apiClient.post(`/contracts/booking/${bookingId}/start/`);
+      return {
+        alreadySigned: false,
+        contractId: data.contract_id,
+        bookingId: data.booking_id,
+        status: data.status,
+        isEmbedded: Boolean(data.is_embedded),
+        sentAt: data.sent_at ?? null,
+        expiresAt: data.expires_at ?? null,
+        template: data.template ?? null,
+      };
+    } catch (error) {
+      if (errorCode(error) === 'already_signed') {
+        return { alreadySigned: true, contract: toContractSummary(error.response?.data?.contract) };
+      }
+      throw error;
+    }
+  },
+
+  /**
+   * A fresh signing URL for Dropbox Sign's embedded window. These expire
+   * within minutes, so this is called every time the window opens and the
+   * result is never cached. Guest-only on the server.
+   */
+  async contractSignUrl(contractId) {
+    const { data } = await apiClient.get(`/contracts/${contractId}/sign-url/`);
     return {
-      bookingId: data.booking_id,
-      agreementAccepted: Boolean(data.agreement_accepted),
-      agreementAcceptedAt: data.agreement_accepted_at ?? null,
+      signUrl: data.sign_url,
+      expiresAt: data.expires_at ?? null,
+      clientId: data.client_id,
+      testMode: Boolean(data.test_mode),
     };
+  },
+
+  /** Email the signing link. The server allows one per contract every 10 minutes. */
+  async resendContract(contractId) {
+    const { data } = await apiClient.post(`/contracts/${contractId}/resend/`);
+    return {
+      contractId: data.contract_id,
+      lastEmailedAt: data.last_emailed_at ?? null,
+      emailCount: data.email_count ?? 0,
+      nextAllowedAt: data.next_allowed_at ?? null,
+    };
+  },
+
+  /** A short-lived link to the signed PDF. Fetched on click, never stored. */
+  async contractDocument(contractId, { download = false } = {}) {
+    const { data } = await apiClient.get(`/contracts/${contractId}/document/`, {
+      params: download ? { download: 1 } : undefined,
+    });
+    return { fileUrl: data.file_url, expiresAt: data.expires_at ?? null };
   },
 
   /**
@@ -436,6 +568,8 @@ const realBookings = {
       bookingId: data.booking_id,
       sessionId: data.session_id,
       clientSecret: data.client_secret ?? null,
+      /** Stripe's hosted page — used when Stripe.js cannot open the window here. */
+      url: data.url ?? null,
       status: data.status,
       detail: data.detail ?? '',
     };
@@ -455,9 +589,29 @@ const realBookings = {
     }));
   },
 
+  /**
+   * The guest's identity verification, as the server sees it.
+   *
+   * This is the source of truth for whether a guest may continue. Reading it
+   * also makes the server re-check a pending session with Stripe, so polling
+   * it is how a submitted check turns into a decision.
+   *
+   * `status`: `verified` | `pending` | `failed` | `unverified`.
+   *
+   * Reads the profile status rather than `/kyc/short/status/{guestId}/`: that
+   * one lists every check the guest has had, while this one applies the
+   * server's own rule (a verified check inside the 12-month window wins over
+   * newer failed ones) and is scoped to the signed-in guest. `guestId` only
+   * keys the cache.
+   */
+  // eslint-disable-next-line no-unused-vars
   async identityStatus(guestId) {
-    const { data } = await apiClient.get(`/kyc/short/status/${guestId}/`);
-    return data;
+    const { data } = await apiClient.get('/kyc/profile/status/');
+    return {
+      status: data.status ?? 'unverified',
+      verifiedAt: data.verified_at ?? null,
+      validUntil: data.valid_until ?? null,
+    };
   },
 
   /* ------------------------------------------------------- full KYC ----- */
@@ -488,28 +642,56 @@ const realBookings = {
   },
 
   /**
-   * Where the full check has got to.
+   * Every identity attempt the guest has made, newest first.
    *
-   * The three sub-checks move independently, so they are surfaced separately
-   * rather than collapsed into the overall status — when credit passes and AML
-   * stalls, "in review" alone tells the guest nothing about what to do.
+   * The profile status says whether they are verified; this says what went
+   * wrong and how many times. Stripe's own reason is stored per attempt as
+   * `result_code` (`document_expired`, `selfie_face_mismatch`, …), which is
+   * what lets a failure name the actual problem instead of saying "failed".
    */
-  async fullKycStatus(guestId) {
-    const { data } = await apiClient.get(`/kyc/full/status/${guestId}/`);
+  async identityAttempts(guestId) {
+    const { data } = await apiClient.get(`/kyc/short/status/${guestId}/`);
+    const checks = data?.checks ?? [];
+    const failed = checks.filter((check) => check.status === 'failed');
 
     return {
-      kycCheckId: data.kyc_check_id ?? data.id ?? null,
-      bookingId: data.booking_id ?? data.booking ?? null,
-      provider: data.provider ?? '',
-      status: data.status ?? 'not_started',
-      amlStatus: data.aml_status ?? 'pending',
-      addressStatus: data.address_status ?? 'pending',
-      creditStatus: data.credit_status ?? 'pending',
-      rightToRentRequired: Boolean(data.right_to_rent_required),
-      rightToRentStatus: data.right_to_rent_status ?? null,
-      referencingFeePaid: Boolean(data.reference_fee_paid ?? data.referencing_fee_paid),
-      reviewedAt: data.reviewed_at ?? null,
-      detail: data.detail ?? '',
+      attempts: checks.length,
+      failedAttempts: failed.length,
+      lastFailure: failed[0]
+        ? { code: failed[0].result_code || '', at: failed[0].updated_at ?? failed[0].created_at ?? null }
+        : null,
+    };
+  },
+
+  /**
+   * Where the full check for one booking has got to.
+   *
+   * The endpoint lists every full check the guest has ever had, newest first,
+   * under `checks`. Approval is per booking on the server, so this picks the
+   * check for the booking asked about — a check approved for an earlier stay
+   * does not clear this one. Null when there is no check for it yet.
+   *
+   * The sub-checks move independently, so they stay separate rather than
+   * being collapsed into the overall status.
+   */
+  async fullKycStatus(guestId, bookingId = null) {
+    const { data } = await apiClient.get(`/kyc/full/status/${guestId}/`);
+    const checks = data?.checks ?? [];
+    const check = bookingId ? checks.find((entry) => entry.booking_id === bookingId) : checks[0];
+    if (!check) return null;
+
+    return {
+      kycCheckId: check.kyc_check_id,
+      bookingId: check.booking_id,
+      provider: check.provider ?? '',
+      status: check.status ?? 'not_started',
+      amlStatus: check.aml_status ?? 'pending',
+      addressStatus: check.address_status ?? 'pending',
+      creditStatus: check.credit_status ?? 'pending',
+      rightToRentRequired: Boolean(check.right_to_rent_required),
+      reviewNotes: check.review_notes ?? '',
+      completedAt: check.completed_at ?? null,
+      createdAt: check.created_at ?? null,
     };
   },
 
@@ -725,10 +907,11 @@ export const bookingService = {
 
   startIdentity: (bookingId) => backend.startIdentity(bookingId),
   getIdentityStatus: (guestId) => backend.identityStatus(guestId),
+  getIdentityAttempts: (guestId) => backend.identityAttempts(guestId),
 
   /* Full KYC has no mock half — a faked compliance pass is worse than none. */
   startFullKyc: (payload) => realBookings.startFullKyc(payload),
-  getFullKycStatus: (guestId) => realBookings.fullKycStatus(guestId),
+  getFullKycStatus: (guestId, bookingId) => realBookings.fullKycStatus(guestId, bookingId),
   payReferencingFee: (payload) => realBookings.payReferencingFee(payload),
 
   /* Stay extras and reviews — real API only; there is nothing useful to mock. */
@@ -744,7 +927,11 @@ export const bookingService = {
   acknowledgeInspection: (bookingId, stage) => backend.acknowledgeInspection(bookingId, stage),
   getContractText: (bookingId) => backend.contractText(bookingId),
   getContractStatus: (contractId) => backend.contractStatus(contractId),
-  acceptAgreement: (bookingId) => backend.acceptAgreement(bookingId),
+  acceptAgreement: (bookingId, terms) => backend.acceptAgreement(bookingId, terms),
+  startContract: (bookingId) => backend.startContract(bookingId),
+  getContractSignUrl: (contractId) => backend.contractSignUrl(contractId),
+  resendContract: (contractId) => backend.resendContract(contractId),
+  getContractDocument: (contractId, options) => backend.contractDocument(contractId, options),
   getMessages: (bookingId) => backend.messages(bookingId),
   sendMessage: (bookingId, body) => backend.sendMessage(bookingId, body),
   getNotifications: (guestId) => backend.notifications(guestId),

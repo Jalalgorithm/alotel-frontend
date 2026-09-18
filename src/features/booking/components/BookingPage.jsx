@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Loading } from '@/components/shared/Loading';
 import { EmptyState } from '@/components/shared/EmptyState';
@@ -7,18 +8,14 @@ import { Logo } from '@/components/shared/Logo';
 import { StepIndicator } from './StepIndicator';
 import { GuestDetailsStep } from './GuestDetailsStep';
 import { ReviewStep } from './ReviewStep';
-import { VerifyIdentityStep } from './VerifyIdentityStep';
+import { VerificationStep } from './VerificationStep';
 import { PaymentStep } from './PaymentStep';
 import { AgreementStep } from './AgreementStep';
 import { useBooking } from '../hooks/useBookingMutations';
 import { SuccessStep } from './SuccessStep';
 import { useBookingWizard } from '../hooks/useBookingWizard';
-import {
-  useCreateBooking,
-  useInitiatePayment,
-  usePaymentOptions,
-  useStartIdentity,
-} from '../hooks/useBookingMutations';
+import { useCreateBooking, useInitiatePayment, usePaymentOptions } from '../hooks/useBookingMutations';
+import { useBookingReadiness } from '../hooks/useBookingReadiness';
 import { paths } from '@/routes/paths';
 import { toast } from '@/stores/uiStore';
 
@@ -27,7 +24,16 @@ import { toast } from '@/stores/uiStore';
  *
  * Owns step orchestration and the server calls; each step component stays a
  * presentational form that reports upward.
+ *
+ * Once the booking exists, the steps after it are gated in order: identity
+ * verified, then terms accepted or contract signed, then payment. The step
+ * store alone would let a guest jump ahead (a stale session, the step
+ * indicator), so the server's readiness decides the furthest step allowed and
+ * the wizard is sent back to it.
  */
+
+/** Steps that cannot be shown until everything before them is done. */
+const GATED_STEPS = ['agreement', 'payment'];
 export const BookingPage = () => {
   const { propertyId } = useParams();
   const navigate = useNavigate();
@@ -53,14 +59,29 @@ export const BookingPage = () => {
   } = useBookingWizard(propertyId);
 
   const { createBookingAsync, isPending: isCreating } = useCreateBooking();
-  const { startIdentityAsync, isPending: isVerifying } = useStartIdentity();
   const { initiatePaymentAsync, isPending: isPaying, error: paymentError } = useInitiatePayment();
   const { data: paymentOptions, isLoading: isLoadingOptions } = usePaymentOptions(currency ?? 'GBP');
   /**
    * The agreement step needs the server's view of the booking, not the draft.
    * Declared with the other hooks so it runs before the early returns below.
    */
-  const { data: booking } = useBooking(draft.bookingId);
+  const { data: booking, isLoading: isLoadingBooking } = useBooking(draft.bookingId);
+  const readiness = useBookingReadiness(booking);
+
+  const currentStepId = steps[stepIndex].id;
+  const isGatedStep = GATED_STEPS.includes(currentStepId);
+
+  /**
+   * The furthest step this booking has earned. Identity and agreement are
+   * blocking; `payment` and `done` leave the guest where they are.
+   */
+  const allowedStepId = readiness.nextStep === 'identity' || readiness.nextStep === 'agreement' ? readiness.nextStep : null;
+  const allowedIndex = allowedStepId ? steps.findIndex((step) => step.id === allowedStepId) : steps.length - 1;
+  const isAheadOfReadiness = Boolean(booking) && !readiness.isLoading && stepIndex > allowedIndex && isGatedStep;
+
+  useEffect(() => {
+    if (isAheadOfReadiness) goToStep(allowedIndex);
+  }, [isAheadOfReadiness, allowedIndex, goToStep]);
 
   if (isLoading) return <Loading label="Preparing your booking…" />;
 
@@ -110,12 +131,6 @@ export const BookingPage = () => {
     }
   };
 
-  const handleStartIdentity = async () => {
-    const session = await startIdentityAsync(draft.bookingId);
-    updateDraft('identity', { status: session.status, sessionId: session.sessionId });
-    return session;
-  };
-
   const handlePay = async (provider) => {
     const intent = await initiatePaymentAsync({
       bookingId: draft.bookingId,
@@ -150,10 +165,16 @@ export const BookingPage = () => {
   /* Render                                                                  */
   /* ---------------------------------------------------------------------- */
 
-  const currentStepId = steps[stepIndex].id;
-
   /** Steps after the review all depend on a booking existing. */
-  const needsBooking = ['identity', 'payment'].includes(currentStepId) && !draft.bookingId;
+  const needsBooking = ['identity', 'agreement', 'payment'].includes(currentStepId) && !draft.bookingId;
+
+  /* Hold gated steps until the booking and its readiness are known, so a
+     guest never sees the payment form flash before being sent back. */
+  const isCheckingGate =
+    isGatedStep && Boolean(draft.bookingId) && (isLoadingBooking || readiness.isLoading || isAheadOfReadiness);
+
+  /** The step indicator may only move back, or forward as far as allowed. */
+  const handleStepClick = (index) => goToStep(Math.min(index, allowedIndex));
 
   const STEP_VIEWS = {
     details: () => (
@@ -183,12 +204,7 @@ export const BookingPage = () => {
       />
     ),
     identity: () => (
-      <VerifyIdentityStep
-        onStartSession={handleStartIdentity}
-        onVerified={nextStep}
-        onBack={previousStep}
-        isPending={isVerifying}
-      />
+      <VerificationStep booking={booking} onVerified={nextStep} onBack={previousStep} />
     ),
     agreement: () => (
       <AgreementStep
@@ -231,11 +247,13 @@ export const BookingPage = () => {
 
       <div className="shell py-10 sm:py-14">
         {currentStepId !== 'success' && (
-          <StepIndicator steps={steps.slice(0, -1)} currentIndex={stepIndex} onStepClick={goToStep} />
+          <StepIndicator steps={steps.slice(0, -1)} currentIndex={stepIndex} onStepClick={handleStepClick} />
         )}
 
         <div className="mt-10">
-          {needsBooking ? (
+          {isCheckingGate ? (
+            <Loading label="Checking your booking…" />
+          ) : needsBooking ? (
             <div className="mx-auto max-w-md">
               <Alert variant="warn" title="Your booking hasn't been created yet">
                 Go back to the review step and confirm your stay before continuing.

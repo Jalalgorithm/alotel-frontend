@@ -13,6 +13,7 @@ import { useBookingStore } from '@/stores/bookingStore';
  */
 export const PaymentCancelledPage = () => {
   const propertyId = useBookingStore((state) => state.draft.propertyId);
+  const bookingId = useBookingStore((state) => state.draft.bookingId);
 
   return (
     <div className="shell flex min-h-[70vh] flex-col items-center justify-center py-10 text-center">
@@ -29,8 +30,10 @@ export const PaymentCancelledPage = () => {
       </p>
 
       <div className="mt-7 flex w-full max-w-xs flex-col gap-2.5">
-        {propertyId && (
-          <Button to={paths.booking(propertyId)} fullWidth size="lg">
+        {/* The booking exists, so it resumes on the finishing page, where the
+            verification and agreement gates still apply. */}
+        {(bookingId || propertyId) && (
+          <Button to={bookingId ? paths.completeBooking(bookingId) : paths.booking(propertyId)} fullWidth size="lg">
             Resume booking
           </Button>
         )}

@@ -12,10 +12,16 @@ export const passwordField = z
   .regex(/[A-Za-z]/, 'Password must contain a letter')
   .regex(/[0-9]/, 'Password must contain a number');
 
+/**
+ * The phone field holds E.164 (`+447400123456`) — `PhoneInput` joins the
+ * dialling code to the number before the form ever sees it, so anything
+ * without a leading `+` means the country was lost on the way.
+ */
 export const phoneField = z
   .string()
-  .min(7, 'Enter a valid phone number')
-  .regex(/^[+()\d\s-]+$/, 'Enter a valid phone number');
+  .min(8, 'Enter your phone number')
+  .max(18, 'That number is too long')
+  .regex(/^\+[1-9]\d{6,16}$/, 'Enter a valid phone number for the country you picked');
 
 export const loginSchema = z.object({
   email: emailField,

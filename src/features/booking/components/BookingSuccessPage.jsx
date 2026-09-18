@@ -180,7 +180,7 @@ export const BookingSuccessPage = () => {
               </p>
 
               {needsVerification && (
-                <Button to={paths.dashboard} className="mt-5">
+                <Button to={paths.completeBooking(bookingId)} className="mt-5">
                   Complete verification
                 </Button>
               )}

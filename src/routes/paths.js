@@ -39,6 +39,13 @@ export const paths = {
   dashboard: '/dashboard',
   booking: (propertyId = ':propertyId') => `/book/${propertyId}`,
   bookingDetail: (bookingId = ':bookingId') => `/bookings/${bookingId}`,
+  /**
+   * Finish an unpaid booking: verify, agree, pay. Fixed by the backend too —
+   * Stripe Identity's hosted page returns to `/checkout/{id}?kyc=done`.
+   */
+  completeBooking: (bookingId = ':bookingId') => `/checkout/${bookingId}`,
+  /** The link in the contract signing email. Fixed by the backend. */
+  signBooking: (bookingId = ':bookingId') => `/bookings/${bookingId}/sign`,
 
   /**
    * Fixed by the backend: it builds Stripe's `success_url` / `cancel_url` from

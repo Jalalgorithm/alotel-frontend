@@ -26,7 +26,11 @@ export const ForgotPasswordPage = () => {
   });
 
   return (
-    <AuthLayout image={HERO_IMAGE} imageAlt="Bedroom in an Alotel Spaces residence">
+    <AuthLayout
+      image={HERO_IMAGE}
+      imageAlt="Bedroom in an Alotel Spaces residence"
+      caption="Locked out? It takes one email to get back in."
+    >
       <h1 className="font-display text-[26px] font-bold leading-tight">Forgot your password?</h1>
       <p className="mt-1.5 text-sm text-ink-soft">
         No worries! Enter your email address and we&apos;ll send you a link to reset your password.

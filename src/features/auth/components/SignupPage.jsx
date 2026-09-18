@@ -1,8 +1,9 @@
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { PhoneInput } from '@/components/ui/PhoneInput';
 import { Checkbox } from '@/components/ui/Checkbox';
 import { Alert } from '@/components/ui/Alert';
 import { AuthLayout } from './AuthLayout';
@@ -21,6 +22,7 @@ export const SignupPage = () => {
 
   const {
     register,
+    control,
     handleSubmit,
     formState: { errors },
   } = useForm({
@@ -32,7 +34,11 @@ export const SignupPage = () => {
     signup(values, { onSuccess: () => navigate(paths.dashboard, { replace: true }) });
 
   return (
-    <AuthLayout image={HERO_IMAGE} imageAlt="Living room in an Alotel Spaces residence">
+    <AuthLayout
+      image={HERO_IMAGE}
+      imageAlt="Living room in an Alotel Spaces residence"
+      caption="One account for every stay, in every market we run."
+    >
       <h1 className="font-display text-[26px] font-bold">Create your account</h1>
       <p className="mt-1.5 text-sm text-ink-soft">
         Join Alotel Spaces to discover premium properties and seamless stays.
@@ -56,13 +62,20 @@ export const SignupPage = () => {
           {...register('email')}
         />
 
-        <Input
-          label="Phone Number"
-          type="tel"
-          autoComplete="tel"
-          placeholder="+234 810 000 0000"
-          error={errors.phone?.message}
-          {...register('phone')}
+        {/* The dialling code is picked, not typed: see PhoneInput. */}
+        <Controller
+          name="phone"
+          control={control}
+          render={({ field }) => (
+            <PhoneInput
+              label="Phone number"
+              value={field.value}
+              onChange={field.onChange}
+              onBlur={field.onBlur}
+              name={field.name}
+              error={errors.phone?.message}
+            />
+          )}
         />
 
         <Input
@@ -100,7 +113,7 @@ export const SignupPage = () => {
       </form>
 
       <AuthDivider />
-      <SocialAuthButtons layout="row" />
+      <SocialAuthButtons />
 
       <p className="mt-6 flex items-center justify-between text-[13px] text-ink-soft">
         Already have an account?

@@ -52,6 +52,9 @@ const BookingPage = lazy(() => import('@/features/booking').then((m) => ({ defau
 const BookingDetailPage = lazy(() =>
   import('@/features/booking').then((m) => ({ default: m.BookingDetailPage })),
 );
+const CompleteBookingPage = lazy(() =>
+  import('@/features/booking').then((m) => ({ default: m.CompleteBookingPage })),
+);
 const BookingSuccessPage = lazy(() =>
   import('@/features/booking').then((m) => ({ default: m.BookingSuccessPage })),
 );
@@ -111,6 +114,25 @@ export const AppRoutes = () => (
         element={
           <ProtectedRoute>
             <BookingPage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Finishing an unpaid booking — same chrome-free treatment as the wizard.
+          Both paths are built by the backend (Stripe Identity return, signing email). */}
+      <Route
+        path={paths.completeBooking()}
+        element={
+          <ProtectedRoute>
+            <CompleteBookingPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path={paths.signBooking()}
+        element={
+          <ProtectedRoute>
+            <CompleteBookingPage />
           </ProtectedRoute>
         }
       />

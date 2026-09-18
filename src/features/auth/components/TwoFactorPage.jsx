@@ -40,7 +40,11 @@ export const TwoFactorPage = () => {
   const resend = () => resendCode({ email });
 
   return (
-    <AuthLayout image={HERO_IMAGE} imageAlt="Bedroom in an Alotel Spaces residence">
+    <AuthLayout
+      image={HERO_IMAGE}
+      imageAlt="Evening in an Alotel Spaces residence"
+      caption="A second step, so nobody else can reach your bookings."
+    >
       <span className="flex size-11 items-center justify-center rounded-full bg-brand-50">
         <MailCheck className="size-5 text-brand-600" aria-hidden="true" />
       </span>

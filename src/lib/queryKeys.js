@@ -64,7 +64,12 @@ export const queryKeys = {
     inspection: (id, stage) => ['bookings', 'inspection', id, stage],
     contractText: (id) => ['bookings', 'contract-text', id],
     contractStatus: (id) => ['bookings', 'contract-status', id],
-    fullKyc: (guestId) => ['bookings', 'full-kyc', guestId],
+    /* Approval is per booking server-side, so the booking is part of the key. */
+    fullKyc: (guestId, bookingId) => ['bookings', 'full-kyc', guestId, bookingId ?? 'latest'],
+    /* Guest-level: one verified check covers every booking for 12 months. */
+    identityStatus: (guestId) => ['bookings', 'identity-status', guestId],
+    /* Every attempt, so a failure can say why and count how many there were. */
+    identityAttempts: (guestId) => ['bookings', 'identity-attempts', guestId],
     checkoutReport: (id) => ['bookings', 'checkout-report', id],
     deposit: (id) => ['bookings', 'deposit', id],
     guidebook: (propertyId) => ['bookings', 'guidebook', propertyId],

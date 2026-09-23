@@ -45,9 +45,9 @@ const toAppUser = (payload) => {
     lastName,
     otherName: payload.other_name ?? '',
     fullName: [firstName, lastName].filter(Boolean).join(' ') || payload.email,
-    // The API has no phone field on the user model yet, so this stays empty
-    // until one is added — see the note in README.
     phone: payload.phone ?? '',
+    /** The API emails a code at registration; nothing is gated on it yet. */
+    emailVerified: Boolean(payload.email_verified),
     avatar: payload.avatar ?? '',
     twoFactorEnabled: Boolean(payload.profile?.enable_2fa),
     preferences: payload.profile?.preferences ?? {},
@@ -75,19 +75,19 @@ export const splitFullName = (fullName = '') => {
 /* -------------------------------------------------------------------------- */
 
 const realAuth = {
-  async login({ email, password }) {
+  async login({ email, password, remember }) {
     const { data } = await apiClient.post('/auth/login/', { email, password });
 
     // 2FA enabled: no tokens yet, a code has been emailed instead.
     if (!data.access) return { status: '2fa_required', email };
 
-    authStorage.setSession({ token: data.access, refreshToken: data.refresh });
+    authStorage.setSession({ token: data.access, refreshToken: data.refresh, remember });
     return { status: 'authenticated' };
   },
 
-  async confirmTwoFactor({ email, code }) {
+  async confirmTwoFactor({ email, code, remember }) {
     const { data } = await apiClient.post('/auth/2fa/confirm/', { email, code });
-    authStorage.setSession({ token: data.access, refreshToken: data.refresh });
+    authStorage.setSession({ token: data.access, refreshToken: data.refresh, remember });
     return { status: 'authenticated' };
   },
 
@@ -102,15 +102,16 @@ const realAuth = {
     await apiClient.post('/auth/2fa/resend/', { email });
   },
 
-  async signup({ fullName, email, password, phone }) {
+  async signup({ firstName, lastName, email, password, phone }) {
     const { data } = await apiClient.post('/auth/register/', {
       email,
       password,
-      phone, // ignored by the API today; harmless, and ready for when it isn't
-      ...splitFullName(fullName),
+      phone,
+      first_name: firstName.trim(),
+      last_name: lastName.trim(),
     });
 
-    authStorage.setSession({ token: data.access, refreshToken: data.refresh });
+    authStorage.setSession({ token: data.access, refreshToken: data.refresh, remember: true });
     return { status: 'authenticated' };
   },
 
@@ -123,6 +124,23 @@ const realAuth = {
     if (!authStorage.getToken()) return null;
     const { data } = await apiClient.get('/auth/profile/');
     return toAppUser(data);
+  },
+
+  /**
+   * Confirm the 6-digit code emailed at registration.
+   *
+   * The API answers the same way for an unknown address, an already-verified
+   * one and an expired code, so the screen must not try to tell them apart.
+   */
+  async verifyEmail({ email, code }) {
+    const { data } = await apiClient.post('/auth/verify-email/', { email, code });
+    return { email: data.email, emailVerified: Boolean(data.email_verified) };
+  },
+
+  /** Send a fresh code. Subject to a cooldown and a daily cap server-side. */
+  async resendEmailVerification({ email }) {
+    const { data } = await apiClient.post('/auth/verify-email/resend/', { email });
+    return { detail: data?.detail ?? '' };
   },
 
   async forgotPassword({ email }) {
@@ -171,13 +189,21 @@ const mockToAppUser = ({ password, ...user }) => ({
   kycStatus: user.identityVerified ? 'verified' : 'unverified',
 });
 
+/**
+ * A fake session for mock mode.
+ *
+ * The user goes in too: `mockAuth.getCurrentUser()` reads the stored copy to
+ * answer "who is signed in", so a session without one left the app holding a
+ * token and no identity — signing in appeared to do nothing.
+ */
 const issueSession = (user) => ({
   token: createFakeToken({ sub: user.id, email: user.email, role: user.role }),
   refreshToken: createFakeToken({ sub: user.id, type: 'refresh' }, 60 * 60 * 24 * 7),
+  user: mockToAppUser(clone(user)),
 });
 
 const mockAuth = {
-  async login({ email, password }) {
+  async login({ email, password, remember }) {
     await delay(700);
 
     const user = readUsers().find((entry) => entry.email.toLowerCase() === email.trim().toLowerCase());
@@ -185,7 +211,7 @@ const mockAuth = {
       throw new ApiError('Incorrect email or password. Please try again.', 401);
     }
 
-    authStorage.setSession(issueSession(user));
+    authStorage.setSession({ ...issueSession(user), remember });
     return { status: 'authenticated' };
   },
 
@@ -198,7 +224,7 @@ const mockAuth = {
     await delay(300);
   },
 
-  async signup({ fullName, email, phone, password }) {
+  async signup({ firstName, lastName, email, phone, password }) {
     await delay(1000);
 
     const users = readUsers();
@@ -208,7 +234,7 @@ const mockAuth = {
 
     const newUser = {
       id: createId('usr'),
-      fullName: fullName.trim(),
+      fullName: [firstName, lastName].map((part) => part.trim()).filter(Boolean).join(' '),
       email: email.trim().toLowerCase(),
       phone,
       password,
@@ -219,7 +245,7 @@ const mockAuth = {
     };
 
     writeUsers([...users, newUser]);
-    authStorage.setSession(issueSession(newUser));
+    authStorage.setSession({ ...issueSession(newUser), remember: true });
     return { status: 'authenticated' };
   },
 
@@ -236,6 +262,16 @@ const mockAuth = {
 
     const user = readUsers().find((entry) => entry.id === cached.id);
     return user ? mockToAppUser(clone(user)) : cached;
+  },
+
+  async verifyEmail({ email }) {
+    await delay(300);
+    return { email, emailVerified: true };
+  },
+
+  async resendEmailVerification() {
+    await delay(300);
+    return { detail: 'Mock code sent.' };
   },
 
   async forgotPassword() {
@@ -338,6 +374,10 @@ export const authService = {
 
   /** Ask for a fresh code without re-authenticating. */
   resendTwoFactor: (payload) => backend.resendTwoFactor(payload),
+
+  /** Confirm the address a guest registered with. */
+  verifyEmail: (payload) => backend.verifyEmail(payload),
+  resendEmailVerification: (payload) => backend.resendEmailVerification(payload),
 
   /** Create an account. The API signs the new guest straight in. */
   async signup(userData) {

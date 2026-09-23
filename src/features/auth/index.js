@@ -9,6 +9,7 @@ export { SignupPage } from './components/SignupPage';
 export { ForgotPasswordPage } from './components/ForgotPasswordPage';
 export { ResetPasswordPage } from './components/ResetPasswordPage';
 export { TwoFactorPage } from './components/TwoFactorPage';
+export { VerifyEmailPage } from './components/VerifyEmailPage';
 export { AuthLayout } from './components/AuthLayout';
 
 // Hooks
@@ -18,6 +19,7 @@ export { useLogin, useConfirmTwoFactor } from './hooks/useLogin';
 export { useSignup } from './hooks/useSignup';
 export { useLogout } from './hooks/useLogout';
 export { useForgotPassword, useResetPassword } from './hooks/usePasswordRecovery';
+export { useVerifyEmail, useResendEmailVerification } from './hooks/useEmailVerification';
 
 // Service — exposed so other features can prefill guest details from the session.
 export { authService } from './services/authService';

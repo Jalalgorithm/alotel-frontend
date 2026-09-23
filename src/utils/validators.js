@@ -29,15 +29,27 @@ export const loginSchema = z.object({
   remember: z.boolean().optional().default(false),
 });
 
-export const signupSchema = z.object({
-  fullName: z.string().min(2, 'Enter your full name'),
-  email: emailField,
-  phone: phoneField,
-  password: passwordField,
-  acceptedTerms: z.literal(true, {
-    message: 'You must accept the Terms of Service to continue',
-  }),
-});
+/**
+ * Names are collected separately because the API stores them separately
+ * (`first_name`, `last_name`). Splitting one "full name" field on a space
+ * guessed wrong for anyone with two given names or a compound surname.
+ */
+export const signupSchema = z
+  .object({
+    firstName: z.string().trim().min(2, 'Enter your first name'),
+    lastName: z.string().trim().min(2, 'Enter your last name'),
+    email: emailField,
+    phone: phoneField,
+    password: passwordField,
+    confirmPassword: z.string().min(1, 'Re-enter your password'),
+    acceptedTerms: z.literal(true, {
+      message: 'You must accept the Terms of Service to continue',
+    }),
+  })
+  .refine((values) => values.password === values.confirmPassword, {
+    message: 'Passwords do not match',
+    path: ['confirmPassword'],
+  });
 
 export const forgotPasswordSchema = z.object({
   email: emailField,

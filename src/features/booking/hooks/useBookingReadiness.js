@@ -6,9 +6,10 @@ import { useFullKycStatus, useIdentityStatus } from './useBookingMutations';
  *
  * The order is fixed and every step gates the next:
  *
- *   1. identity   — verified, at the level the server set for this booking
- *   2. agreement  — terms accepted (under 183 nights) or contract signed
- *   3. payment    — only once both of the above are true
+ *   1. email      — the registered address is confirmed
+ *   2. identity   — verified, at the level the server set for this booking
+ *   3. agreement  — terms accepted (under 183 nights) or contract signed
+ *   4. payment    — only once all of the above are true
  *
  * Every screen that can lead to payment — the booking wizard, the page for
  * finishing an existing booking, the booking detail page, the dashboard —
@@ -17,9 +18,10 @@ import { useFullKycStatus, useIdentityStatus } from './useBookingMutations';
  * It fails closed. If the verification status cannot be loaded, the guest is
  * treated as unverified rather than waved through.
  *
- * The server is still the real gate: `POST /payments/initiate/` refuses an
- * unsigned long stay. It does not yet refuse an unverified guest, which is why
- * this has to be strict rather than advisory.
+ * The server is the real gate, and it refuses payment twice over: 403
+ * `email_unverified` when the address is unconfirmed, and 409
+ * `contract_unsigned` for an unsigned long stay. It does not yet check identity
+ * verification, which is why this stays strict rather than advisory.
  *
  * @returns {{
  *   isLoading: boolean,
@@ -35,7 +37,7 @@ const UNPAID = 'pending_payment';
 /** Paid, but held until compliance clears — older bookings can be here. */
 const AWAITING_COMPLIANCE = ['pending_kyc', 'pending_approval'];
 
-export const STEP_ORDER = ['identity', 'agreement', 'payment'];
+export const STEP_ORDER = ['email', 'identity', 'agreement', 'payment'];
 
 export const useBookingReadiness = (booking, { poll = false } = {}) => {
   const { user } = useAuth();
@@ -76,9 +78,15 @@ export const useBookingReadiness = (booking, { poll = false } = {}) => {
 
   const isOpen = booking.status === UNPAID || AWAITING_COMPLIANCE.includes(booking.status);
 
+  /* An account created before the API returned the flag reads as undefined;
+     treat only an explicit `false` as unconfirmed so nobody is blocked by a
+     missing field. */
+  const emailVerified = user?.emailVerified !== false;
+
   let nextStep = 'done';
   if (isOpen) {
-    if (!verification.isVerified) nextStep = 'identity';
+    if (!emailVerified) nextStep = 'email';
+    else if (!verification.isVerified) nextStep = 'identity';
     else if (!agreement.isDone) nextStep = 'agreement';
     else if (booking.status === UNPAID) nextStep = 'payment';
   }
@@ -87,6 +95,7 @@ export const useBookingReadiness = (booking, { poll = false } = {}) => {
 
   return {
     isLoading,
+    emailVerified,
     verification,
     agreement,
     nextStep,
@@ -97,6 +106,10 @@ export const useBookingReadiness = (booking, { poll = false } = {}) => {
 
 /** What the guest is asked to do next, in words a button can carry. */
 export const NEXT_STEP_COPY = {
+  email: {
+    action: 'Confirm your email',
+    reason: 'Payment opens once the email address on your account is confirmed.',
+  },
   identity: {
     action: 'Verify your identity',
     reason: 'Payment opens once your identity is verified.',

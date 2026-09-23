@@ -12,6 +12,7 @@ import { loginSchema } from '@/utils/validators';
 import { paths } from '@/routes/paths';
 import { env } from '@/lib/env';
 import { getErrorMessage } from '@/utils/errors';
+import { safeReturnTo } from '@/utils/navigation';
 import { demoUser } from '@/lib/mock/data';
 import HERO_IMAGE from '@/assets/images/auth-login.jpg';
 
@@ -30,8 +31,10 @@ export const LoginPage = () => {
   const location = useLocation();
   const { login, isPending, error } = useLogin();
 
-  // Where the guard sent us from, so we can return there after signing in.
-  const redirectTo = location.state?.from ?? paths.dashboard;
+  /* Where the guard sent us from. Validated, never trusted: it reaches us
+     from the URL, and a redirect straight after a password prompt is the
+     most convincing moment in a phishing flow. */
+  const redirectTo = safeReturnTo(location.state?.from, paths.dashboard);
 
   const {
     register,
@@ -44,14 +47,26 @@ export const LoginPage = () => {
 
   const onSubmit = (values) =>
     login(
-      { email: values.email, password: values.password },
+      { email: values.email, password: values.password, remember: values.remember },
       {
         onSuccess: (result) => {
-          // 2FA accounts get a code instead of tokens. Carry the password
-          // through so the code screen can re-send without a second sign-in.
+          /* 2FA accounts get a code instead of tokens. Only the email address
+             travels: the code screen re-sends with that alone, and router
+             state lives in browser history for the life of the tab — no place
+             for a password. */
           if (result.status === '2fa_required') {
             navigate(paths.twoFactor, {
-              state: { email: result.email, password: values.password, from: redirectTo },
+              state: { email: result.email, from: redirectTo, remember: values.remember },
+            });
+            return;
+          }
+          /* An unconfirmed address goes to the code screen first — the same
+             gate the route guard applies, checked here so the guest is not
+             bounced a moment after landing. */
+          if (result.user?.emailVerified === false) {
+            navigate(paths.verifyEmail, {
+              replace: true,
+              state: { email: result.user.email, from: redirectTo },
             });
             return;
           }
@@ -69,7 +84,9 @@ export const LoginPage = () => {
       <h1 className="font-display text-[26px] font-bold">Welcome back</h1>
       <p className="mt-1.5 text-sm text-ink-soft">Login to access and manage your bookings.</p>
 
-      {env.isDev && (
+      {/* Behind its own flag, not just `DEV`: a preview build must never
+          print a working account and password onto the screen. */}
+      {env.showDevCredentials && (
         <Alert variant="info" className="mt-5">
           {env.useMockAuth ? 'Mock account' : 'Dev account'} —{' '}
           <span className="font-medium text-ink">{DEV_ACCOUNT.email}</span> /{' '}

@@ -27,6 +27,8 @@ export const paths = {
   login: '/login',
   signup: '/signup',
   twoFactor: '/verify',
+  /** Where a new guest confirms the address they registered with. */
+  verifyEmail: '/verify-email',
   forgotPassword: '/forgot-password',
   /**
    * The API emails `{FRONTEND_URL}/password-reset/{uid}/{token}/`, so this

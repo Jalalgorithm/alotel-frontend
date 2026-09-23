@@ -7,7 +7,11 @@ const toBool = (value, fallback = false) => {
   return String(value).toLowerCase() === 'true';
 };
 
-const useMock = toBool(import.meta.env.VITE_USE_MOCK, true);
+/**
+ * The old blanket switch. Now off by default: every feature below has real
+ * endpoints, so mock data must be asked for, never inherited.
+ */
+const useMock = toBool(import.meta.env.VITE_USE_MOCK, false);
 
 export const env = {
   apiUrl: import.meta.env.VITE_API_URL || '/api/v1',
@@ -40,13 +44,21 @@ export const env = {
    * Spaces — meeting rooms, event halls, anything booked by the hour or the
    * day rather than the night.
    *
-   * Defaults to `true` regardless of `VITE_USE_MOCK`, because there is no
-   * Spaces backend yet: no models, no migrations, no endpoints on any branch.
-   * The screens are built against the contract in the Spaces briefing so they
-   * can move to the real API by flipping this flag once it ships. Setting it
-   * to `false` today will simply 404.
+   * The Spaces API now exists — search, detail, availability, quote, booking,
+   * payment and cancellation, at exactly the paths these screens already call
+   * — so this defaults to the real thing like everything else.
    */
-  useMockSpaces: toBool(import.meta.env.VITE_USE_MOCK_SPACES, true),
+  useMockSpaces: toBool(import.meta.env.VITE_USE_MOCK_SPACES, useMock),
+
+  /**
+   * Home-page destination tiles and testimonials.
+   *
+   * The one place still served from local content, because `/destinations/`
+   * and `/testimonials/` do not exist on any branch: the guides are written in
+   * `destinationContent.js` and the testimonials in `homeContent.js`. Defaults
+   * on, and turning it off will simply 404 until those endpoints ship.
+   */
+  useMockHome: toBool(import.meta.env.VITE_USE_MOCK_HOME, true),
 
   /**
    * Stripe publishable key, used only for `stripe.verifyIdentity()` — the
@@ -83,4 +95,11 @@ export const env = {
   mockLatency: Number(import.meta.env.VITE_MOCK_LATENCY ?? 800),
   appName: import.meta.env.VITE_APP_NAME || 'Alotel Spaces',
   isDev: import.meta.env.DEV,
+
+  /**
+   * Prints a working account and password on the sign-in screen.
+   * Its own flag rather than `DEV`, so a preview or staging build cannot
+   * put credentials on screen by accident. Local default: on in dev.
+   */
+  showDevCredentials: toBool(import.meta.env.VITE_SHOW_DEV_CREDENTIALS, import.meta.env.DEV),
 };

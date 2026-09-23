@@ -2,6 +2,7 @@ import { Component } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { env } from '@/lib/env';
+import { redactError } from '@/utils/redact';
 
 /**
  * Catches render-time exceptions so one broken subtree never blanks the app.
@@ -15,8 +16,13 @@ export class ErrorBoundary extends Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    // Replace with your telemetry sink (Sentry, Datadog, ...) in production.
-    console.error('[ErrorBoundary]', error, errorInfo);
+    /* Redacted, because an axios error carries the bearer token in its
+       headers and — after a failed sign-in — the password in its body.
+       Replace with your telemetry sink (Sentry, Datadog, ...) in production,
+       keeping `redactError` in front of it. */
+    console.error('[ErrorBoundary]', redactError(error), {
+      componentStack: errorInfo?.componentStack,
+    });
   }
 
   handleReset = () => {

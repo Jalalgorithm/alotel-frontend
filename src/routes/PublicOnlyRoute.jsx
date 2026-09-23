@@ -2,6 +2,7 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '@/features/auth';
 import { Loading } from '@/components/shared/Loading';
 import { paths } from './paths';
+import { safeReturnTo } from '@/utils/navigation';
 
 /**
  * The mirror of `ProtectedRoute`: keeps signed-in guests off the login and
@@ -20,7 +21,7 @@ export const PublicOnlyRoute = ({ children, redirectTo }) => {
   if (isInitialising) return <Loading fullScreen label="Checking your session…" />;
 
   if (isAuthenticated) {
-    const target = redirectTo ?? location.state?.from ?? paths.dashboard;
+    const target = redirectTo ?? safeReturnTo(location.state?.from, paths.dashboard);
     return <Navigate to={target} replace />;
   }
 

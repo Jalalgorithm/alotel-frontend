@@ -26,7 +26,7 @@ export const AuthProvider = ({ children }) => {
     if (isLoading) return;
 
     if (user) setUser(user);
-    else if (isFetched || !authStorage.getToken()) {
+    else if (isFetched || !(authStorage.getToken() || authStorage.getRefreshToken())) {
       // Fetched and empty, or never had a token: this visitor is signed out.
       clearSession();
     }

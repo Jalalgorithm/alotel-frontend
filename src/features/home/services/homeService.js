@@ -45,7 +45,9 @@ const realHome = {
   testimonials: async () => (await apiClient.get('/testimonials')).data,
 };
 
-const backend = env.useMock ? mockHome : realHome;
+/* `useMockHome`, not the blanket flag: these two endpoints are the only ones
+   that do not exist, so they are the only ones still served locally. */
+const backend = env.useMockHome ? mockHome : realHome;
 
 export const homeService = {
   getDestinations: (limit) => backend.destinations(limit),

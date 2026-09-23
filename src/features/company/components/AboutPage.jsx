@@ -392,8 +392,9 @@ export const AboutPage = () => (
               to={paths.destinationDetail(destination.slug)}
               className="group relative block h-[200px] overflow-hidden rounded-card"
             >
-              {/* Malaga has no photograph yet; `Image` paints a branded
-                  gradient rather than leaving a hole. */}
+              {/* `Image` paints a branded gradient if a destination ever
+                  lacks a photograph, so a missing file degrades rather than
+                  leaving a hole. */}
               <Image
                 src={destination.image}
                 alt=""

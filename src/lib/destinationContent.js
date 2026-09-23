@@ -5,10 +5,10 @@ import abujaImage from '@/assets/images/destinations/abuja.jpg';
 import dubaiImage from '@/assets/images/destinations/dubai.jpg';
 import newYorkImage from '@/assets/images/destinations/new-york.jpg';
 import lagosImage from '@/assets/images/destinations/lagos.jpg';
-/* Malaga has no photograph supplied yet. `Image` renders a branded
-   gradient in place of a missing src, so the card degrades rather than
-   breaking — but a real picture of the home port is owed. */
-const malagaImage = null;
+/* The harbour and La Malagueta seen from the Gibralfaro walls — the shot the
+   photo brief below asks for, standing in until the brand team supplies their
+   own of the home port. */
+import malagaImage from '@/assets/images/destinations/malaga.jpg';
 
 /**
  * Editorial content for each destination.
@@ -38,8 +38,8 @@ const malagaImage = null;
  * `photoBrief` is the art direction from the Section 5 homepage brief. Every
  * tile image is still marked [PLACEHOLDER] there, so the brief is carried in
  * code beside the copy it belongs to rather than left in a document — it is
- * what the brand team needs to close out, and Malaga has no photograph at all
- * yet (`image: null`, which renders a branded gradient instead).
+ * what the brand team needs to close out. The Malaga tile now carries a
+ * stand-in photograph of the harbour rather than a gradient.
  */
 
 export const DESTINATIONS = [

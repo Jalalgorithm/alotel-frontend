@@ -6,23 +6,18 @@ import { authStorage } from '@/lib/storage';
 /**
  * The single source of truth for "who is signed in".
  *
- * Session persistence across refreshes works in two layers:
- *  1. `initialData` returns the localStorage copy synchronously, so a reload
- *     paints the authenticated UI immediately — no auth flicker;
- *  2. the query then revalidates against the API (or mock) in the background.
+ * There is deliberately no `initialData` here. Seeding the query from browser
+ * storage made an unverified, user-editable blob indistinguishable from a
+ * server response, and `AuthProvider` then promoted it to the signed-in user.
+ * The cached copy still paints the shell without any auth flicker — it does so
+ * through `authStore.cachedUser`, which nothing treats as authentication.
  */
-export const useCurrentUser = () => {
-  const cachedUser = authStorage.getUser();
-
-  return useQuery({
+export const useCurrentUser = () =>
+  useQuery({
     queryKey: queryKeys.auth.currentUser(),
     queryFn: authService.getCurrentUser,
-    initialData: cachedUser ?? undefined,
-    // Treat the cache as already stale so a refetch confirms it right away.
-    initialDataUpdatedAt: 0,
     staleTime: 1000 * 60 * 5,
     retry: false,
-    // Signed-out users have nothing to fetch.
-    enabled: Boolean(authStorage.getToken()),
+    // Signed-out visitors have nothing to fetch.
+    enabled: Boolean(authStorage.getToken() || authStorage.getRefreshToken()),
   });
-};

@@ -860,10 +860,13 @@ const realBookings = {
    * rather than one star control — the API models them separately and a single
    * score would have to be invented to fill the rest.
    */
-  async createReview({ bookingId, propertyId, ratings, overall, body }) {
+  async createReview({ bookingId, ratings, overall, body }) {
     const { data } = await apiClient.post('/reviews/', {
-      booking: bookingId,
-      property: propertyId,
+      /* `booking_id`, not `booking`: the view reads `booking_id` from the body
+         to find the booking, then fills in `booking`, `property` and `guest`
+         itself from it. Sending `booking` alone looked up id `None` and came
+         back "Booking not found." */
+      booking_id: bookingId,
       rating_cleanliness: ratings.cleanliness,
       rating_accuracy: ratings.accuracy,
       rating_location: ratings.location,

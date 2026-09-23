@@ -27,11 +27,24 @@ export const SignupPage = () => {
     formState: { errors },
   } = useForm({
     resolver: zodResolver(signupSchema),
-    defaultValues: { fullName: '', email: '', phone: '', password: '', acceptedTerms: false },
+    defaultValues: {
+      firstName: '',
+      lastName: '',
+      email: '',
+      phone: '',
+      password: '',
+      confirmPassword: '',
+      acceptedTerms: false,
+    },
   });
 
+  /* Registration signs the guest in and emails a confirmation code, so the
+     next screen asks for that code rather than dropping them on the dashboard
+     with an unexplained reminder. Nothing is blocked if they skip it. */
   const onSubmit = (values) =>
-    signup(values, { onSuccess: () => navigate(paths.dashboard, { replace: true }) });
+    signup(values, {
+      onSuccess: () => navigate(paths.verifyEmail, { replace: true, state: { email: values.email } }),
+    });
 
   return (
     <AuthLayout
@@ -45,13 +58,23 @@ export const SignupPage = () => {
       </p>
 
       <form onSubmit={handleSubmit(onSubmit)} className="mt-5 space-y-4" noValidate>
-        <Input
-          label="Full name"
-          autoComplete="name"
-          placeholder="Enter your full name"
-          error={errors.fullName?.message}
-          {...register('fullName')}
-        />
+        {/* Two fields, because the API stores two. */}
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Input
+            label="First name"
+            autoComplete="given-name"
+            placeholder="Jane"
+            error={errors.firstName?.message}
+            {...register('firstName')}
+          />
+          <Input
+            label="Last name"
+            autoComplete="family-name"
+            placeholder="Walker"
+            error={errors.lastName?.message}
+            {...register('lastName')}
+          />
+        </div>
 
         <Input
           label="Email address"
@@ -86,6 +109,15 @@ export const SignupPage = () => {
           hint="At least 8 characters, including a letter and a number."
           error={errors.password?.message}
           {...register('password')}
+        />
+
+        <Input
+          label="Confirm password"
+          type="password"
+          autoComplete="new-password"
+          placeholder="Type it again"
+          error={errors.confirmPassword?.message}
+          {...register('confirmPassword')}
         />
 
         <Checkbox

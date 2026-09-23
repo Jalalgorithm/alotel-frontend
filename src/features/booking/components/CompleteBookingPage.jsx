@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, CheckCircle2, Clock } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Clock, MailCheck } from 'lucide-react';
 import { Loading } from '@/components/shared/Loading';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { Logo } from '@/components/shared/Logo';
@@ -100,6 +100,39 @@ export const CompleteBookingPage = () => {
     );
   }
 
+  /* The API refuses payment for an unconfirmed address (403
+     `email_unverified`), so this is a step, not a footnote. It is not part of
+     the indicator: it is one screen away and applies to the account rather
+     than to this booking. */
+  if (readiness.nextStep === 'email') {
+    return (
+      <Shell bookingId={booking.id}>
+        <div className="mx-auto max-w-md">
+          <Alert
+            variant="warn"
+            title="Confirm your email to continue"
+            icon={<MailCheck className="size-4" aria-hidden="true" />}
+          >
+            Payment needs a confirmed email address. We sent a code when you registered — it takes a moment, and
+            your dates stay held.
+          </Alert>
+          <Button
+            fullWidth
+            size="lg"
+            className="mt-4"
+            to={paths.verifyEmail}
+            state={{ from: paths.completeBooking(booking.id) }}
+          >
+            Confirm your email
+          </Button>
+          <Button variant="ghost" fullWidth className="mt-2" to={paths.bookingDetail(booking.id)}>
+            Back to booking
+          </Button>
+        </div>
+      </Shell>
+    );
+  }
+
   const isSignature = readiness.agreement.mode === 'signature';
   const steps = [
     { id: 'identity', label: 'Verify identity' },
@@ -143,7 +176,9 @@ export const CompleteBookingPage = () => {
   const allowedIndex = STEP_ORDER.indexOf(readiness.nextStep);
   const chosenIndex = chosenStep ? STEP_ORDER.indexOf(chosenStep) : -1;
   const stepId = chosenIndex >= 0 && chosenIndex <= allowedIndex ? chosenStep : readiness.nextStep;
-  const stepIndex = STEP_ORDER.indexOf(stepId);
+  /* Against `steps`, not STEP_ORDER: the indicator does not show the email
+     step, so the two lists are deliberately different lengths. */
+  const stepIndex = Math.max(0, steps.findIndex((step) => step.id === stepId));
 
   const goTo = (id) => setChosenStep(id);
 
@@ -168,8 +203,14 @@ export const CompleteBookingPage = () => {
     } catch (error) {
       /* The server found a step still open — show it rather than the error. */
       const code = errorCode(error);
-      if (code === 'contract_unsigned' || code === 'kyc_required' || code === 'agreement_required') {
+      if (
+        code === 'contract_unsigned' ||
+        code === 'kyc_required' ||
+        code === 'agreement_required' ||
+        code === 'email_unverified'
+      ) {
         queryClient.invalidateQueries({ queryKey: queryKeys.bookings.detail(booking.id) });
+        queryClient.invalidateQueries({ queryKey: queryKeys.auth.currentUser() });
         queryClient.invalidateQueries({ queryKey: ['bookings', 'identity-status'] });
         queryClient.invalidateQueries({ queryKey: ['bookings', 'full-kyc'] });
         setChosenStep(null);

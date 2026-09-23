@@ -8,6 +8,7 @@ import { AuthLayout } from './AuthLayout';
 import { useConfirmTwoFactor, useResendTwoFactor } from '../hooks/useLogin';
 import { paths } from '@/routes/paths';
 import { getErrorMessage } from '@/utils/errors';
+import { safeReturnTo } from '@/utils/navigation';
 import HERO_IMAGE from '@/assets/images/auth-verify.jpg';
 
 
@@ -28,13 +29,19 @@ export const TwoFactorPage = () => {
   const { resendCode, isPending: isResending, isSuccess: resent } = useResendTwoFactor();
 
   const email = location.state?.email;
-  const redirectTo = location.state?.from ?? paths.dashboard;
+  const redirectTo = safeReturnTo(location.state?.from, paths.dashboard);
+  /* Carried from the sign-in form so the finished session lands in the
+     store the guest asked for. */
+  const remember = location.state?.remember;
 
   if (!email) return <Navigate to={paths.login} replace />;
 
   const submit = (value = code) => {
     if (value.length !== CODE_LENGTH) return;
-    confirmCode({ email, code: value }, { onSuccess: () => navigate(redirectTo, { replace: true }) });
+    confirmCode(
+      { email, code: value, remember },
+      { onSuccess: () => navigate(redirectTo, { replace: true }) },
+    );
   };
 
   const resend = () => resendCode({ email });

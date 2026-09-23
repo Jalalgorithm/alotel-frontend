@@ -40,15 +40,21 @@
     <link rel="preconnect" href="//privacy-proxy.usercentrics.eu" />
     <link rel="preload" href="//privacy-proxy.usercentrics.eu/latest/uc-block.bundle.js" as="script" />
     <script type="application/javascript" src="https://privacy-proxy.usercentrics.eu/latest/uc-block.bundle.js"></script>
+    <!--
+      `bundle.js`, not `loader.js`. Usercentrics' loader fetches part of itself
+      as a blob and evaluates it, which a Content-Security-Policy can only
+      permit by allowing 'unsafe-eval' and blob: scripts for the whole site —
+      the two allowances that would undo most of the policy. Their own guidance
+      is to use the bundle when a CSP is in force.
+    -->
     <script
       id="usercentrics-cmp"
-      src="https://app.usercentrics.eu/browser-ui/latest/loader.js"
+      src="https://app.usercentrics.eu/browser-ui/latest/bundle.js"
       data-settings-id="U7jSXkZMXkDPaX"
       async
     ></script>
-    <script>
-      uc.setCustomTranslations('https://termageddon.ams3.cdn.digitaloceanspaces.com/translations/');
-    </script>
+    <!-- Was inline; moved to a file so the CSP needs no `unsafe-inline`. -->
+    <script src="/uc-translations.js" defer></script>
   </head>
   <body>
     <div id="root"></div>

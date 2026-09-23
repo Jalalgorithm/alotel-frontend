@@ -53,8 +53,6 @@ const DESTINATION_BY_CITY = {
 /* Imagery                                                                     */
 /* -------------------------------------------------------------------------- */
 
-const img = (id, w = 1200) => `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=${w}&q=80`;
-
 /**
  * Listings carry their own photography — `thumbNail` on the list endpoint and
  * a full gallery under `/properties/{id}/images/`.
@@ -64,24 +62,6 @@ const img = (id, w = 1200) => `https://images.unsplash.com/photo-${id}?auto=form
  * deliberate in the grid and looks the same everywhere it appears, rather than
  * leaving a hole in a photography-led design.
  */
-const PLACEHOLDER_SETS = [
-  ['1600607687939-ce8a6c25118c', '1600566753086-00f18fb6b3ea', '1600585154340-be6161a56a0c', '1582719478250-c89cae4dc85b'],
-  ['1613490493576-7fde63acd811', '1600596542815-ffad4c1539a9', '1512917774080-9991f1c4c750', '1600210492486-724fe5c67fb0'],
-  ['1502672260266-1c1ef2d93688', '1560448204-e02f11c3d0e2', '1556911220-bff31c812dba', '1493809842364-78817add7ffb'],
-  ['1522708323590-d24dbb6b0267', '1484154218962-a197022b5858', '1505693416388-ac5ce068fe85', '1540518614846-7eded433c457'],
-  ['1560185007-cde436f6a4d0', '1567767292278-a4f21aa2d36e', '1522771739844-6a9f6d5f14af', '1571003123894-1f0594d2b5d9'],
-  ['1580587771525-78b9dba3b914', '1613977257363-707ba9348227', '1554995207-c18c203602cb', '1583608205776-bfd35f0d9f83'],
-];
-
-/** Deterministic index from the property id, so the choice never shuffles. */
-const hashIndex = (id = '', buckets) => {
-  let hash = 0;
-  for (let index = 0; index < id.length; index += 1) {
-    hash = (hash * 31 + id.charCodeAt(index)) % 100000;
-  }
-  return hash % buckets;
-};
-
 /**
  * Build the gallery.
  *
@@ -96,10 +76,11 @@ const imagesFor = (raw, gallery) => {
     .map((entry) => mediaUrl(entry.property_image))
     .filter(Boolean);
 
-  const combined = [mediaUrl(raw.thumbNail), ...uploaded].filter(Boolean);
-  if (combined.length) return [...new Set(combined)];
-
-  return PLACEHOLDER_SETS[hashIndex(String(raw.id), PLACEHOLDER_SETS.length)].map((id) => img(id));
+  /* No stand-in photography. A listing with no uploaded images used to borrow
+     stock interiors keyed off its id, which put pictures of somewhere else on
+     a real property. `Image` paints a branded panel for an empty src, which is
+     honest and still looks deliberate. */
+  return [...new Set([mediaUrl(raw.thumbNail), ...uploaded].filter(Boolean))];
 };
 
 /* -------------------------------------------------------------------------- */

@@ -46,6 +46,7 @@ const ResetPasswordPage = lazy(() =>
   import('@/features/auth').then((m) => ({ default: m.ResetPasswordPage })),
 );
 const TwoFactorPage = lazy(() => import('@/features/auth').then((m) => ({ default: m.TwoFactorPage })));
+const VerifyEmailPage = lazy(() => import('@/features/auth').then((m) => ({ default: m.VerifyEmailPage })));
 const DashboardPage = lazy(() => import('@/features/dashboard').then((m) => ({ default: m.DashboardPage })));
 const PolicyPage = lazy(() => import('@/features/legal').then((m) => ({ default: m.PolicyPage })));
 const BookingPage = lazy(() => import('@/features/booking').then((m) => ({ default: m.BookingPage })));
@@ -107,6 +108,13 @@ export const AppRoutes = () => (
         {/* Path shape is dictated by the reset link the API emails */}
         <Route path={paths.resetPassword()} element={<ResetPasswordPage />} />
       </Route>
+
+      {/*
+        Confirming the registered address. Deliberately outside PublicOnlyRoute:
+        sign-up signs the guest in, so that guard would bounce them off this
+        screen the moment they arrived.
+      */}
+      <Route path={paths.verifyEmail} element={<VerifyEmailPage />} />
 
       {/* Booking wizard — protected, and also chrome-free */}
       <Route

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Checkbox } from '@/components/ui/Checkbox';
 import { Alert } from '@/components/ui/Alert';
+import { errorBanner } from '@/stores/uiStore';
 import { AuthLayout } from './AuthLayout';
 import { AuthDivider, SocialAuthButtons } from './SocialAuthButtons';
 import { useLogin } from '../hooks/useLogin';
@@ -29,7 +30,7 @@ const DEV_ACCOUNT = env.useMockAuth
 export const LoginPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, isPending, error } = useLogin();
+  const { login, isPending } = useLogin();
 
   /* Where the guard sent us from. Validated, never trusted: it reaches us
      from the URL, and a redirect straight after a password prompt is the
@@ -45,8 +46,9 @@ export const LoginPage = () => {
     defaultValues: { email: '', password: '', remember: true },
   });
 
-  const onSubmit = (values) =>
-    login(
+  const onSubmit = (values) => {
+    errorBanner.dismiss();
+    return login(
       { email: values.email, password: values.password, remember: values.remember },
       {
         onSuccess: (result) => {
@@ -72,8 +74,15 @@ export const LoginPage = () => {
           }
           navigate(redirectTo, { replace: true });
         },
+        onError: (signInError) =>
+          errorBanner.show({
+            title: 'We could not sign you in',
+            message: getErrorMessage(signInError, 'Check your email address and password, then try again.'),
+            actions: [{ label: 'Reset your password', onClick: () => navigate(paths.forgotPassword) }],
+          }),
       },
     );
+  };
 
   return (
     <AuthLayout
@@ -122,8 +131,6 @@ export const LoginPage = () => {
             Forgot Password?
           </Link>
         </div>
-
-        {error && <Alert variant="error">{getErrorMessage(error, 'We could not sign you in.')}</Alert>}
 
         <Button type="submit" italic size="lg" fullWidth isLoading={isPending}>
           {isPending ? 'Signing in…' : 'Login'}

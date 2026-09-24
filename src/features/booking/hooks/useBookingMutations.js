@@ -98,7 +98,8 @@ export const usePaymentOptions = (base = 'GBP') =>
 export const useInitiatePayment = () => {
   const mutation = useMutation({
     mutationFn: bookingService.initiatePayment,
-    onError: (error) => toast.error('Could not start payment', getErrorMessage(error)),
+    /* PaymentStep raises the page banner, which carries the reassurance that
+       nothing was charged; a toast alongside it would only repeat the words. */
   });
 
   return {

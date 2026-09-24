@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { CreditCard, ExternalLink, Loader2, Lock, TriangleAlert } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
+import { errorBanner } from '@/stores/uiStore';
 import { ProviderLogo } from '@/components/ui/ProviderLogo';
 import { StepShell, StepActions } from './StepShell';
 import { useBooking } from '../hooks/useBookingMutations';
@@ -100,18 +101,35 @@ export const PaymentStep = ({
     setProvider(defaultProviderFor(providerByCurrency, currency));
   }, [providerByCurrency, currency]);
 
-  const [localError, setLocalError] = useState('');
+  /* Failures go to the banner at the top of the page rather than a line under
+     the button: money is the worst place for a message that can be missed. */
+  const [hasFailed, setHasFailed] = useState(false);
+
+  const raise = (payError) => {
+    setHasFailed(true);
+    errorBanner.show({
+      title: 'Payment could not be started',
+      message: getErrorMessage(payError, 'The payment provider did not respond.'),
+      detail: 'Nothing has been charged, and your booking is still held. You can try again now or come back later.',
+      tone: 'temporary',
+    });
+  };
 
   const pay = async () => {
-    setLocalError('');
+    errorBanner.dismiss();
+    setHasFailed(false);
     try {
       await onPay(provider);
     } catch (payError) {
-      setLocalError(getErrorMessage(payError));
+      raise(payError);
     }
   };
 
-  const message = localError || (error ? getErrorMessage(error) : '');
+  /* A failure raised by the caller's mutation rather than by `pay` above. */
+  useEffect(() => {
+    if (error) raise(error);
+     
+  }, [error]);
 
   return (
     <StepShell title="Payment" subtitle="You will be taken to a secure checkout page to finish paying.">
@@ -155,12 +173,6 @@ export const PaymentStep = ({
           </div>
         )}
 
-        {message && (
-          <Alert variant="error" title="Payment could not be started" className="mt-4">
-            {message}
-          </Alert>
-        )}
-
         <p className="mt-4 inline-flex items-start gap-1.5 text-[11.5px] text-ink-muted">
           <Lock className="mt-0.5 size-3.5 shrink-0 text-brand-600" aria-hidden="true" />
           Card details are entered on the provider&apos;s own checkout page. We never see or store them.
@@ -193,7 +205,9 @@ export const PaymentStep = ({
           Back
         </Button>
 
-        {message && (
+        {/* Reassurance, not an error: the banner at the top carries what went
+            wrong, this says the booking survived it. */}
+        {hasFailed && (
           <p className="inline-flex items-start gap-1.5 text-[11.5px] text-ink-muted">
             <TriangleAlert className="mt-0.5 size-3.5 shrink-0 text-warn" aria-hidden="true" />
             Your booking is saved. You can return and pay later from your dashboard.

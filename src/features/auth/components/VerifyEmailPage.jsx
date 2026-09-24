@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { CheckCircle2, MailCheck } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { Alert } from '@/components/ui/Alert';
+import { errorBanner } from '@/stores/uiStore';
 import { CodeInput } from '@/components/ui/CodeInput';
 import { AuthLayout } from './AuthLayout';
 import { useAuth } from '../hooks/useAuth';
@@ -48,8 +48,20 @@ export const VerifyEmailPage = () => {
   const email = location.state?.email ?? user?.email ?? '';
   const redirectTo = safeReturnTo(location.state?.from, paths.dashboard);
 
-  const { verifyEmail, isPending, error } = useVerifyEmail();
-  const { logout } = useLogout();
+  const { verifyEmail, isPending } = useVerifyEmail();
+  const { logoutAsync } = useLogout();
+
+  /* Signing out has to take the guest somewhere. Clearing the session on its
+     own left this screen sitting there — the code box still on display, the
+     account already gone — which read as a broken button. */
+  const leave = async () => {
+    try {
+      await logoutAsync();
+    } catch {
+      /* The session is cleared locally either way. */
+    }
+    navigate(paths.login, { replace: true });
+  };
   const { resendCode, isPending: isResending } = useResendEmailVerification();
 
   /* The cooldown runs from arrival, because registration has just sent one. */
@@ -64,13 +76,20 @@ export const VerifyEmailPage = () => {
 
   const submit = (value = code) => {
     if (value.length !== CODE_LENGTH || isPending) return;
+    errorBanner.dismiss();
     verifyEmail(
       { email, code: value },
       {
         onSuccess: () => setIsDone(true),
-        onError: () => {
+        onError: (codeError) => {
           setCode('');
-          setAttempt((value) => value + 1);
+          setAttempt((current) => current + 1);
+          errorBanner.show({
+            title: 'That code was not accepted',
+            message: getErrorMessage(codeError, 'Check the six digits and try again.'),
+            detail: 'Codes expire after five minutes — if this one has, ask for a new one.',
+            actions: secondsLeft > 0 ? [] : [{ label: 'Send a new code', onClick: resend }],
+          });
         },
       },
     );
@@ -131,12 +150,6 @@ export const VerifyEmailPage = () => {
       >
         <CodeInput key={attempt} length={CODE_LENGTH} onChange={setCode} onComplete={submit} disabled={isPending} />
 
-        {error && (
-          <Alert variant="error" className="mt-4">
-            {getErrorMessage(error, 'That code was not accepted. Request a new one and try again.')}
-          </Alert>
-        )}
-
         <Button
           type="submit"
           size="lg"
@@ -166,12 +179,12 @@ export const VerifyEmailPage = () => {
         Wrong address, or not your account?{' '}
         <button
           type="button"
-          onClick={() => logout()}
+          onClick={leave}
           className="font-display font-semibold italic text-brand-700 hover:underline"
         >
-          Sign out
+          Back to sign in
         </button>{' '}
-        and start again — the code is only good for this account.
+        — this code only works for {email}.
       </p>
     </AuthLayout>
   );

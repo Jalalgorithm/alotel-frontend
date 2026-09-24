@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
+import { errorBanner } from '@/stores/uiStore';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { StepShell, StepActions } from './StepShell';
 import { cn } from '@/utils/classNames';
@@ -402,6 +403,9 @@ const SignContract = ({ booking, text, onBack, onContinue, continueLabel, onText
 
   const [phase, setPhase] = useState('idle'); // idle | opening | signing | confirming | error
   const [message, setMessage] = useState('');
+  /* Set when the failure came from Dropbox Sign rather than from anything the
+     guest did, so the notice can say so instead of implying they got it wrong. */
+  const [isProviderFault, setIsProviderFault] = useState(false);
   const [emailNote, setEmailNote] = useState(null); // { tone, text }
   const [isSlow, setIsSlow] = useState(false);
   const [isOpeningCopy, setIsOpeningCopy] = useState(false);
@@ -456,18 +460,35 @@ const SignContract = ({ booking, text, onBack, onContinue, continueLabel, onText
       return;
     }
     setPhase('error');
-    setMessage(
-      code === 'provider_error'
-        ? 'Signing is not available right now. Please try again shortly, or use the link we email you.'
-        : code === 'expired'
-          ? 'That signing link expired. Try again and we will issue a fresh one.'
-          : getErrorMessage(error),
-    );
+    const providerFault = code === 'provider_error';
+    setIsProviderFault(providerFault);
+
+    const text = providerFault
+      ? 'Signing is not available right now. Please try again shortly, or use the link we email you.'
+      : code === 'expired'
+        ? 'That signing link expired. Try again and we will issue a fresh one.'
+        : getErrorMessage(error);
+
+    setMessage(text);
+
+    /* Top of the page, not under a contract that scrolls for pages — the same
+       place every other failure in the app now appears. */
+    errorBanner.show({
+      title: providerFault ? 'Signing is unavailable right now' : 'Not signed yet',
+      message: text,
+      detail: providerFault
+        ? 'This is on our side, not yours — the signing provider refused the request. Your dates stay held and nothing has been charged.'
+        : undefined,
+      tone: providerFault ? 'temporary' : 'fixable',
+      reference: providerFault ? 'DBX-SIGN' : undefined,
+    });
   };
 
   const sign = async () => {
+    errorBanner.dismiss();
     setPhase('opening');
     setMessage('');
+    setIsProviderFault(false);
     setIsSlow(false);
     signedRef.current = false;
 
@@ -481,6 +502,16 @@ const SignContract = ({ booking, text, onBack, onContinue, continueLabel, onText
 
       /* Signing URLs last minutes, so one is fetched every time the window opens. */
       const { signUrl, clientId, testMode } = await bookingService.getContractSignUrl(started.contractId);
+
+      /* Dropbox Sign's embedded window needs both. A response missing either
+         means the server is not fully configured for embedded signing, and
+         opening the window anyway fails with nothing a guest could act on. */
+      if (!signUrl || !clientId) {
+        setPhase('error');
+        setIsProviderFault(true);
+        setMessage('Signing is not configured correctly on our side, so the window cannot open.');
+        return;
+      }
       const { default: HelloSign } = await import('hellosign-embedded');
 
       const client = new HelloSign({ clientId });
@@ -611,8 +642,14 @@ const SignContract = ({ booking, text, onBack, onContinue, continueLabel, onText
             )}
           </Alert>
         ) : phase === 'error' ? (
-          <Alert variant="error" title="Not signed yet">
-            {message}
+          /* The banner at the top of the page carries what went wrong. This
+             says what it means for the booking, beside the buttons that fix
+             it — the contract above scrolls for pages, so the detail belongs
+             where the guest is looking, not at the end of it. */
+          <Alert variant={isProviderFault ? 'warn' : 'error'} title="Not signed yet">
+            {isProviderFault
+              ? 'Your dates stay held and nothing has been charged. Try again in a few minutes, or use the link we email you.'
+              : message}
           </Alert>
         ) : (
           <Alert variant="secure" title="Sign here, in the app">

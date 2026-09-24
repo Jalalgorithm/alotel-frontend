@@ -16,6 +16,8 @@ export const useLogin = () => {
   const queryClient = useQueryClient();
   const setUser = useAuthStore((state) => state.setUser);
 
+  /* No `onError` here: the sign-in screen raises the page banner itself, and
+     one failure said twice is worse than said once. */
   const mutation = useMutation({
     mutationFn: authService.login,
     onSuccess: (result) => {
@@ -24,9 +26,6 @@ export const useLogin = () => {
       queryClient.setQueryData(queryKeys.auth.currentUser(), result.user);
       setUser(result.user);
       toast.success('Welcome back', `Signed in as ${result.user.email}`);
-    },
-    onError: (error) => {
-      toast.error('Sign in failed', getErrorMessage(error));
     },
   });
 
@@ -67,9 +66,6 @@ export const useConfirmTwoFactor = () => {
       queryClient.setQueryData(queryKeys.auth.currentUser(), result.user);
       setUser(result.user);
       toast.success('Welcome back', `Signed in as ${result.user.email}`);
-    },
-    onError: (error) => {
-      toast.error('Verification failed', getErrorMessage(error));
     },
   });
 

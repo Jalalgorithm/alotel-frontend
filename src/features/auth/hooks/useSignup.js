@@ -3,22 +3,19 @@ import { authService } from '../services/authService';
 import { queryKeys } from '@/lib/queryKeys';
 import { useAuthStore } from '@/stores/authStore';
 import { toast } from '@/stores/uiStore';
-import { getErrorMessage } from '@/utils/errors';
 
 /** Registration mutation — the new account is signed in immediately. */
 export const useSignup = () => {
   const queryClient = useQueryClient();
   const setUser = useAuthStore((state) => state.setUser);
 
+  /* Failures are raised as the page banner by the sign-up screen. */
   const mutation = useMutation({
     mutationFn: authService.signup,
     onSuccess: (result) => {
       queryClient.setQueryData(queryKeys.auth.currentUser(), result.user);
       setUser(result.user);
       toast.success('Account created', `Welcome to Alotel Spaces, ${result.user.firstName || 'there'}.`);
-    },
-    onError: (error) => {
-      toast.error('Could not create account', getErrorMessage(error));
     },
   });
 

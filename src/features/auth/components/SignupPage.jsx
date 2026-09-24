@@ -12,13 +12,14 @@ import { useSignup } from '../hooks/useSignup';
 import { signupSchema } from '@/utils/validators';
 import { getErrorMessage } from '@/utils/errors';
 import { paths } from '@/routes/paths';
+import { errorBanner } from '@/stores/uiStore';
 import HERO_IMAGE from '@/assets/images/auth-signup.jpg';
 
 
 /** "Create your account" — registration screen. */
 export const SignupPage = () => {
   const navigate = useNavigate();
-  const { signup, isPending, error } = useSignup();
+  const { signup, isPending } = useSignup();
 
   const {
     register,
@@ -41,10 +42,18 @@ export const SignupPage = () => {
   /* Registration signs the guest in and emails a confirmation code, so the
      next screen asks for that code rather than dropping them on the dashboard
      with an unexplained reminder. Nothing is blocked if they skip it. */
-  const onSubmit = (values) =>
+  const onSubmit = (values) => {
+    errorBanner.dismiss();
     signup(values, {
       onSuccess: () => navigate(paths.verifyEmail, { replace: true, state: { email: values.email } }),
+      onError: (signupError) =>
+        errorBanner.show({
+          title: 'We could not create your account',
+          message: getErrorMessage(signupError, 'Check the details and try again.'),
+          actions: [{ label: 'Sign in instead', onClick: () => navigate(paths.login) }],
+        }),
     });
+  };
 
   return (
     <AuthLayout
@@ -136,8 +145,6 @@ export const SignupPage = () => {
           }
           {...register('acceptedTerms')}
         />
-
-        {error && <Alert variant="error">{getErrorMessage(error, 'We could not create your account.')}</Alert>}
 
         <Button type="submit" italic size="lg" fullWidth isLoading={isPending}>
           {isPending ? 'Creating account…' : 'Create account'}
